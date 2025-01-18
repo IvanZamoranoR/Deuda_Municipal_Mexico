@@ -1,0 +1,80 @@
+
+### Mexico Public Debt Data Cleaning 
+## Fuente: Secretaría de Hacienda y Crédito Público (SHCP) - Registro Público Único
+## Link: https://www.disciplinafinanciera.hacienda.gob.mx/es/DISCIPLINA_FINANCIERA/Registro_Publico_Unico
+## Authors Iván Zamorano, Rafael Ch
+
+
+# Libraries
+
+#You can also use the pacman library if you want to read the rest of libraries with one command.
+
+library(readxl)
+library(dplyr)
+library(magrittr)
+library(openxlsx)
+
+
+# Get the data (link in the source, XLSX file)
+# We will ignore the first row since it only contains the tittle "FINANCIAMIENTOS Y OBLIGACIONES INSCRITOS EN EL REGISTRO PÚBLICO ÚNICO 1/".
+# We will ignore the second row since it only contains blank spaces.
+
+file_path <- "registro_deuda (1).xlsx"
+
+registro_deuda_1_ <- read.xlsx(file_path, startRow = 2) %>%
+  slice(-1)
+
+#Data Glimpse
+#View(registro_deuda_1)
+
+#Para Amount: 
+#Se tomó monto original contratado,  
+
+#Para Maturities: 
+#Se tomó fecha de vencimiento (hay algunos null values)
+#También podemos está fecha de contratación, fecha de inscripción y plazo pactado a días, sumando fecha de contratación o fecha de inscripción más el plazo pactado a días 
+
+#Para Rates: 
+#Se tomó Tasa Efectiva 
+#También se pude tomar Tasa de Interés, Sobretasa, Porcentaje Afectado, Tasa garantizada 
+
+
+
+#Data Structure - Explanatio:
+
+#* For Amount we used "Monto Original Contratado"
+#* For Maturirities we used "Fecha de Vencimiento" (note that there are some values)
+#* Other important dates are "Fecha de Contratación", "Fecha de Inscripción" and "Plazo pactados a días", we can add the "Fecha de contratación" or the "Fecha de Inscripción" plus the "Plazo pactados a días".
+#* For rates we used "Tasa Efectiva" but we can also use the "Tasa de interés", "Sobretasa", "Porcentaje Afectado" and "Tasa garantizada". 
+
+
+
+# Filter by municipalities 
+
+# Create a new data frame with rows containing "municipio"
+registro_deuda_municipal_1 <- registro_deuda_1_[grepl("municipio", registro_deuda_1_$DEUDOR.U.OBLIGADO.2, ignore.case = TRUE), ]
+# Create a new data frame with rows containing "municipal"
+registro_deuda_municipal_2 <- registro_deuda_1_[grepl("municipal", registro_deuda_1_$DEUDOR.U.OBLIGADO.2, ignore.case = TRUE), ]
+registro_deuda_municipal <- rbind(registro_deuda_municipal_1, registro_deuda_municipal_2)
+registro_deuda_municipal <- registro_deuda_municipal[, c("MONTO.ORIGINAL.CONTRATADO.7/", "DEUDOR.U.OBLIGADO.2/", "FECHA.DE.VENCIMIENTO.27/", "TASA.EFECTIVA.13/")]
+write.xlsx(registro_deuda_municipal, file = "registro_deuda_municipal.xlsx")
+
+
+# Filter by states 
+
+#Obtenemos datos estatales
+
+# Create a new data frame with rows containing "Estado"
+registro_deuda_estatal_1 <- registro_deuda_1_[grepl("Estado", registro_deuda_1_$DEUDOR.U.OBLIGADO.2, ignore.case = TRUE), ]
+# Create a new data frame with rows containing "Estatal"
+registro_deuda_estatal_2 <- registro_deuda_1_[grepl("Estatal", registro_deuda_1_$DEUDOR.U.OBLIGADO.2, ignore.case = TRUE), ]
+registro_deuda_estatal <- rbind(registro_deuda_estatal_1, registro_deuda_estatal_2)
+registro_deuda_estatal <- registro_deuda_estatal[, c("MONTO.ORIGINAL.CONTRATADO.7/", "DEUDOR.U.OBLIGADO.2/", "FECHA.DE.VENCIMIENTO.27/", "TASA.EFECTIVA.13/")]
+write.xlsx(registro_deuda_estatal, file = "resgistro_deuda_estatal.xlsx")
+
+
+
+
+
+
+
