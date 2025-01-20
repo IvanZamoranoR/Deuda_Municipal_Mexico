@@ -40,7 +40,7 @@ registro_deuda_1<- read.xlsx(file_path, startRow = 2) %>%
 View(registro_deuda_1)
 ```
 
-#Data Structure - Explanatio:
+#Data Structure - Explanation:
 
 * For Amount we used "Monto Original Contratado"
 * For Maturirities we used "Fecha de Vencimiento" (note that there are some values)
