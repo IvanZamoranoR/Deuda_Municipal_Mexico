@@ -27,18 +27,39 @@ library(openxlsx)
 # Get the data (link in the source, XLSX file)
 # We will ignore the first row since it only contains the tittle "FINANCIAMIENTOS Y OBLIGACIONES INSCRITOS EN EL REGISTRO PÚBLICO ÚNICO 1/".
 # We will ignore the second row since it only contains blank spaces.
+# We will remove the last 4 rows because they contain metadata that's not useful. 
+# Renaming the column from "Saldo.total" to "2Q2019". 
+# Renaming the column from "Entidad.Federativa" to "EntidadFed". 
 # Data from: 20192Q - 20243Q
 
 
 ```{r get data , echo=FALSE}
-2019_2Q <- "registro_deuda (1).xlsx"
-registro_deuda_1<- read.xlsx(file_path, startRow = 2) %>%
-  slice(-3)
+Q22019 <- "Quarterly/02_04_2_trim_2019.xlsx"
+Q2_2019 <- read.xlsx(Q22019, startRow = 4) %>%
+  slice(1:(n() - 4)) %>% 
+  rename("2Q2019" = "Saldo.total")  %>% 
+  rename("EntidadFed" = "Entidad.federativa")  %>% 
+  select("EntidadFed", "2Q2019")  # Select only the desired columns
+print(Q2_2019rows <- nrow(Q2_2019))
+
+
+Q3_2019 <- read_excel("Quarterly/02_04_3_trim_2019.xls", range = "A4:B100")
+  #rename("3Q2019" = "Saldo.total") %>%
+  #rename("EntidadFed" = "Entidad.federativa")  %>% 
+  #select("3Q2019", "EntidadFed")
+#print(Q3_2019rows <- nrow(Q3_2019))
+
+
+
+merged_data1 <- left_join(Q2_2019, Q3_2019, by = "EntidadFed")
+merged_data1
+
+
 ```
 
 #Data Glimpse
 ```{r get data , echo=FALSE}
-View(registro_deuda_1)
+View(Q2_2019)
 ```
 
 #Data Structure - Explanation:
