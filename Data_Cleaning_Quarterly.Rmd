@@ -34,6 +34,9 @@ library(openxlsx)
 
 
 ```{r get data , echo=FALSE}
+
+############################ 2020 ############################    
+
 Q22019 <- "Quarterly/02_04_2_trim_2019.xlsx"
 Q2_2019 <- read.xlsx(Q22019, startRow = 4) %>%
   slice(1:(n() - 4)) %>% 
@@ -43,16 +46,60 @@ Q2_2019 <- read.xlsx(Q22019, startRow = 4) %>%
 print(Q2_2019rows <- nrow(Q2_2019))
 
 
-Q3_2019 <- read_excel("Quarterly/02_04_3_trim_2019.xls", range = "A4:B100")
-  #rename("3Q2019" = "Saldo.total") %>%
-  #rename("EntidadFed" = "Entidad.federativa")  %>% 
-  #select("3Q2019", "EntidadFed")
-#print(Q3_2019rows <- nrow(Q3_2019))
+Q3_2019 <- read_excel("Quarterly/02_04_3_trim_2019.xls", range = "A4:F2487") %>%
+  slice(1:(n() - 4)) %>% 
+  rename("3Q2019" = "Saldo total") %>%
+  rename("EntidadFed" = "Entidad federativa")  %>% 
+  select("EntidadFed", "3Q2019")
+print(Q3_2019rows <- nrow(Q3_2019))
+
+Q4_2019 <- read_excel("Quarterly/02_04_4_trim_2019.xls", range = "A4:F2487") %>%
+  slice(1:(n() - 4)) %>% 
+  rename("4Q2019" = "Saldo total") %>%
+  rename("EntidadFed" = "Entidad federativa")  %>% 
+  select("EntidadFed", "4Q2019")
+print(Q4_2019rows <- nrow(Q4_2019))
+
+merged_data_2019 <- Q2_2019 %>%
+  left_join(Q3_2019, by = "EntidadFed") %>%
+  left_join(Q4_2019, by = "EntidadFed")
+
+merged_data_201
+
+
+############################ 2019 ############################    
+
+Q22019 <- "Quarterly/02_04_2_trim_2019.xlsx"
+Q2_2019 <- read.xlsx(Q22019, startRow = 4) %>%
+  slice(1:(n() - 4)) %>% 
+  rename("2Q2019" = "Saldo.total")  %>% 
+  rename("EntidadFed" = "Entidad.federativa")  %>% 
+  select("EntidadFed", "2Q2019")  # Select only the desired columns
+print(Q2_2019rows <- nrow(Q2_2019))
+
+
+Q3_2019 <- read_excel("Quarterly/02_04_3_trim_2019.xls", range = "A4:F2487") %>%
+  slice(1:(n() - 4)) %>% 
+  rename("3Q2019" = "Saldo total") %>%
+  rename("EntidadFed" = "Entidad federativa")  %>% 
+  select("EntidadFed", "3Q2019")
+print(Q3_2019rows <- nrow(Q3_2019))
+
+Q4_2019 <- read_excel("Quarterly/02_04_4_trim_2019.xls", range = "A4:F2487") %>%
+  slice(1:(n() - 4)) %>% 
+  rename("4Q2019" = "Saldo total") %>%
+  rename("EntidadFed" = "Entidad federativa")  %>% 
+  select("EntidadFed", "4Q2019")
+print(Q4_2019rows <- nrow(Q4_2019))
+
+merged_data_2019 <- Q2_2019 %>%
+  left_join(Q3_2019, by = "EntidadFed") %>%
+  left_join(Q4_2019, by = "EntidadFed")
+
+merged_data_2019
 
 
 
-merged_data1 <- left_join(Q2_2019, Q3_2019, by = "EntidadFed")
-merged_data1
 
 
 ```
