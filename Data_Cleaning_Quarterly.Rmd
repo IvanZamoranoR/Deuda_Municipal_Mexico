@@ -48,7 +48,6 @@ print(Q1_2020rows <- nrow(Q1_2020))
 
 
 
-
 Q2_2020 <- read_excel("Quarterly/02_04_2_trim_2020.xls", range = "A4:F2487") %>%
   slice(1:(n() - 4)) %>% 
   rename("2Q2020" = "Saldo total") %>%
@@ -105,8 +104,9 @@ Q2_2019 <- read.xlsx(Q22019, startRow = 4) %>%
   rename("2Q2019" = "Saldo.total")  %>% 
   rename("EntidadFed" = "Entidad.federativa")  %>% 
   select("EntidadFed", "2Q2019")  # Select only the desired columns
-print(Q2_2019rows <- nrow(Q2_2019))
 
+Q2_2019$id <- seq_len(nrow(Q2_2019))
+print(Q2_2019rows <- nrow(Q2_2019))
 
 
 
@@ -115,20 +115,35 @@ Q3_2019 <- read_excel("Quarterly/02_04_3_trim_2019.xls", range = "A4:F2487") %>%
   rename("3Q2019" = "Saldo total") %>%
   rename("EntidadFed" = "Entidad federativa")  %>% 
   select("EntidadFed", "3Q2019")
+Q3_2019$id <- seq_len(nrow(Q3_2019))
 print(Q3_2019rows <- nrow(Q3_2019))
+
 
 Q4_2019 <- read_excel("Quarterly/02_04_4_trim_2019.xls", range = "A4:F2487") %>%
   slice(1:(n() - 4)) %>% 
   rename("4Q2019" = "Saldo total") %>%
   rename("EntidadFed" = "Entidad federativa")  %>% 
   select("EntidadFed", "4Q2019")
-print(Q4_2019rows <- nrow(Q4_2019))
+Q4_2019$id <- seq_len(nrow(Q4_2019))
+print(Q4_20219rows <- nrow(Q4_2019))
+
+
 
 merged_data_2019 <- Q2_2019 %>%
-  left_join(Q3_2019, by = "EntidadFed") %>%
-  left_join(Q4_2019, by = "EntidadFed")
+  left_join(Q3_2019, by = "id") %>%
+  left_join(Q4_2019, by = "id")
 
-merged_data_2019
+merged_data_2019  <- merged_data_2019 %>%
+  select(-EntidadFed.y, -EntidadFed.x)
+
+
+
+merged_data_2019_2020 <- merged_data_2019 %>%
+  left_join(merged_data_2020, by = "id")
+
+merged_data_2019_2020   <- merged_data_2019_2020 %>%
+  select(-EntidadFed.x, -id)
+
 
 
 ```
