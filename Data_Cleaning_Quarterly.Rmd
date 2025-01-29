@@ -33,6 +33,41 @@ library(openxlsx)
 # Data from: 20192Q - 20243Q
 
 
+
+
+```{r get data 2021 , echo=FALSE}
+############################ 2020 ############################    
+
+Q1_2021 <- read_excel("Quarterly/02_04_1_trim_2021.xls", range = "A4:F2487") %>%
+  slice(1:(n() - 4)) %>% 
+  rename("1Q2021" = "Saldo total") %>%
+  rename("EntidadFed" = "Entidad federativa")  %>% 
+  select("EntidadFed", "1Q2021")
+
+Q1_2021$id <- seq_len(nrow(Q1_2021))
+print(Q1_2021rows <- nrow(Q1_2021))
+
+
+Q2_2021 <- read_excel("Quarterly/02_04_2_trim_2021.xls", range = "A4:F2487") %>%
+  slice(1:(n() - 4)) %>% 
+  rename("2Q2021" = "Saldo total") %>%
+  rename("EntidadFed" = "Entidad federativa")  %>% 
+  select("EntidadFed", "2Q2021")
+
+Q2_2021$id <- seq_len(nrow(Q2_2021))
+print(Q2_2021rows <- nrow(Q2_2021))
+
+Q3_2021 <- read.xlsx(Q22021, startRow = 4) %>%
+  slice(1:(n() - 4)) %>% 
+  rename("2Q2021" = "Saldo.total")  %>% 
+  rename("EntidadFed" = "Entidad.federativa")  %>% 
+  select("EntidadFed", "2Q2021")  # Select only the desired columns
+
+Q3_2021$id <- seq_len(nrow(Q2_2021))
+print(Q2_2021rows <- nrow(Q2_2021))
+
+```
+
 ```{r get data 2020 , echo=FALSE}
 
 ############################ 2020 ############################    
@@ -80,8 +115,6 @@ print(Q3_2020rows <- nrow(Q4_2020))
 Q4_2020$id <- seq_len(nrow(Q4_2020))
 print(Q4_2020rows <- nrow(Q4_2020))
 
-
-
 merged_data_2020 <- Q1_2020 %>%
   left_join(Q2_2020, by = "id") %>%
   left_join(Q3_2020, by = "id") %>%
@@ -89,9 +122,6 @@ merged_data_2020 <- Q1_2020 %>%
 
 merged_data_2020  <- merged_data_2020 %>%
   select(-EntidadFed.y, -EntidadFed.x.x, -EntidadFed.y.y)
-
-
-
 ```
 
 
@@ -145,8 +175,19 @@ merged_data_2019_2020   <- merged_data_2019_2020 %>%
   select(-EntidadFed.x, -id)
 
 
+```
+
+```{r merge data years  , echo=FALSE}
+
+merged_data_2019_2020 <- merged_data_2019 %>%
+  left_join(merged_data_2020, by = "id")
+
+merged_data_2019_2020   <- merged_data_2019_2020 %>%
+  select(-EntidadFed.x, -id)
 
 ```
+
+
 
 #Data Glimpse
 ```{r get data , echo=FALSE}
