@@ -30,13 +30,161 @@ library(openxlsx)
 # We will remove the last 4 rows because they contain metadata that's not useful. 
 # Renaming the column from "Saldo.total" to "2Q2019". 
 # Renaming the column from "Entidad.Federativa" to "EntidadFed". 
-# Data from: 20192Q - 20243Q
+# Data from: 20192Q - 20233Q
 
 
+
+
+```{r get data 2024 , echo=FALSE}
+############################ 2024 ############################    
+
+Q12024 <- "Quarterly/02_04_1_trim_2024.xlsx"
+Q1_2024 <- read.xlsx(Q12024, startRow = 4) %>%
+  slice(1:(n() - 4)) %>% 
+  rename("1Q2024" = "Saldo.total")  %>% 
+  rename("EntidadFed" = "Entidad.Federativa")  %>% 
+  select("EntidadFed", "1Q2024")  # Select only the desired column
+Q1_2024$id <- seq_len(nrow(Q1_2024))
+print(Q1_2024rows <- nrow(Q1_2024))
+
+
+Q22024 <- "Quarterly/02_04_2_trim_2023.xlsx"
+Q2_2024 <- read.xlsx(Q22024, startRow = 4) %>%
+  slice(1:(n() - 4)) %>% 
+  rename("2Q2024" = "Saldo.total")  %>% 
+  rename("EntidadFed" = "Entidad.Federativa")  %>% 
+  select("EntidadFed", "2Q2024")  # Select only the desired column
+Q2_2024$id <- seq_len(nrow(Q2_2024))
+print(Q2_2024rows <- nrow(Q2_2024))
+
+
+Q32024 <- "Quarterly/02_04_3_trim_2023.xlsx"
+Q3_2024 <- read.xlsx(Q32024, startRow = 4) %>%
+  slice(1:(n() - 4)) %>% 
+  rename("3Q2024" = "Saldo.total")  %>% 
+  rename("EntidadFed" = "Entidad.Federativa")  %>% 
+  select("EntidadFed", "3Q2024")  # Select only the desired column
+Q3_2024$id <- seq_len(nrow(Q3_2024))
+print(Q3_2024rows <- nrow(Q3_2024))
+
+merged_data_2024 <- Q1_2024 %>%
+  left_join(Q2_2024, by = "id") %>%
+  left_join(Q3_2024, by = "id") 
+
+merged_data_2024  <- merged_data_2024 %>%
+  select(-EntidadFed.y, -EntidadFed, -EntidadFed.x)
+
+```
+
+
+
+```{r get data 2023 , echo=FALSE}
+############################ 2023 ############################    
+
+Q12023 <- "Quarterly/02_04_1_trim_2023.xlsx"
+Q1_2023 <- read.xlsx(Q12023, startRow = 4) %>%
+  slice(1:(n() - 4)) %>% 
+  rename("1Q2023" = "Saldo.total")  %>% 
+  rename("EntidadFed" = "Entidad.federativa")  %>% 
+  select("EntidadFed", "1Q2023")  # Select only the desired column
+Q1_2023$id <- seq_len(nrow(Q1_2023))
+print(Q1_2023rows <- nrow(Q1_2023))
+
+
+Q22023 <- "Quarterly/02_04_2_trim_2023.xlsx"
+Q2_2023 <- read.xlsx(Q22023, startRow = 4) %>%
+  slice(1:(n() - 4)) %>% 
+  rename("2Q2023" = "Saldo.total")  %>% 
+  rename("EntidadFed" = "Entidad.Federativa")  %>% 
+  select("EntidadFed", "2Q2023")  # Select only the desired column
+Q2_2023$id <- seq_len(nrow(Q2_2023))
+print(Q2_2023rows <- nrow(Q2_2023))
+
+
+Q32023 <- "Quarterly/02_04_3_trim_2023.xlsx"
+Q3_2023 <- read.xlsx(Q32023, startRow = 4) %>%
+  slice(1:(n() - 4)) %>% 
+  rename("3Q2023" = "Saldo.total")  %>% 
+  rename("EntidadFed" = "Entidad.Federativa")  %>% 
+  select("EntidadFed", "3Q2023")  # Select only the desired column
+Q3_2023$id <- seq_len(nrow(Q3_2023))
+print(Q3_2023rows <- nrow(Q3_2023))
+
+
+Q42023 <- "Quarterly/02_04_4_trim_2023.xlsx"
+Q4_2023 <- read.xlsx(Q42023, startRow = 4) %>%
+  slice(1:(n() - 4)) %>% 
+  rename("4Q2023" = "Saldo.total")  %>% 
+  rename("EntidadFed" = "Entidad.Federativa")  %>% 
+  select("EntidadFed", "4Q2023")  # Select only the desired column
+Q4_2023$id <- seq_len(nrow(Q4_2023))
+print(Q4_2023rows <- nrow(Q4_2023))
+
+merged_data_2023 <- Q1_2023 %>%
+  left_join(Q2_2023, by = "id") %>%
+  left_join(Q3_2023, by = "id") %>%
+  left_join(Q4_2023, by = "id")
+
+merged_data_2023  <- merged_data_2023 %>%
+  select(-EntidadFed.y, -EntidadFed.x.x, -EntidadFed.y.y)
+
+```
+
+```{r get data 2022 , echo=FALSE}
+############################ 2022 ############################    
+
+Q12022 <- "Quarterly/02_04_1_trim_2022.xlsx"
+Q1_2022 <- read.xlsx(Q12022, startRow = 4) %>%
+  slice(1:(n() - 4)) %>% 
+  rename("1Q2022" = "Saldo.total")  %>% 
+  rename("EntidadFed" = "Entidad.federativa")  %>% 
+  select("EntidadFed", "1Q2022")  # Select only the desired column
+Q1_2022$id <- seq_len(nrow(Q1_2022))
+print(Q1_2022rows <- nrow(Q1_2022))
+
+
+Q22022 <- "Quarterly/02_04_2_trim_2022.xlsx"
+Q2_2022 <- read.xlsx(Q22022, startRow = 4) %>%
+  slice(1:(n() - 4)) %>% 
+  rename("2Q2022" = "Saldo.total")  %>% 
+  rename("EntidadFed" = "Entidad.federativa")  %>% 
+  select("EntidadFed", "2Q2022")  # Select only the desired column
+Q2_2022$id <- seq_len(nrow(Q2_2022))
+print(Q2_2022rows <- nrow(Q2_2022))
+
+
+Q32022 <- "Quarterly/02_04_3_trim_2022.xlsx"
+Q3_2022 <- read.xlsx(Q32022, startRow = 4) %>%
+  slice(1:(n() - 4)) %>% 
+  rename("3Q2022" = "Saldo.total")  %>% 
+  rename("EntidadFed" = "Entidad.federativa")  %>% 
+  select("EntidadFed", "3Q2022")  # Select only the desired column
+Q3_2022$id <- seq_len(nrow(Q3_2022))
+print(Q3_2022rows <- nrow(Q3_2022))
+
+
+Q42022 <- "Quarterly/02_04_4_trim_2022 (1).xlsx"
+Q4_2022 <- read.xlsx(Q42022, startRow = 4) %>%
+  slice(1:(n() - 4)) %>% 
+  rename("4Q2022" = "Saldo.total")  %>% 
+  rename("EntidadFed" = "Entidad.federativa")  %>% 
+  select("EntidadFed", "4Q2022")  # Select only the desired column
+Q4_2022$id <- seq_len(nrow(Q4_2022))
+print(Q4_2022rows <- nrow(Q4_2022))
+
+merged_data_2022 <- Q1_2022 %>%
+  left_join(Q2_2022, by = "id") %>%
+  left_join(Q3_2022, by = "id") %>%
+  left_join(Q4_2022, by = "id")
+
+merged_data_2022  <- merged_data_2022 %>%
+  select(-EntidadFed.y, -EntidadFed.x.x, -EntidadFed.y.y)
+
+```
 
 
 ```{r get data 2021 , echo=FALSE}
-############################ 2020 ############################    
+############################ 2021 ############################    
 
 Q1_2021 <- read_excel("Quarterly/02_04_1_trim_2021.xls", range = "A4:F2487") %>%
   slice(1:(n() - 4)) %>% 
@@ -57,14 +205,34 @@ Q2_2021 <- read_excel("Quarterly/02_04_2_trim_2021.xls", range = "A4:F2487") %>%
 Q2_2021$id <- seq_len(nrow(Q2_2021))
 print(Q2_2021rows <- nrow(Q2_2021))
 
-Q3_2021 <- read.xlsx(Q22021, startRow = 4) %>%
-  slice(1:(n() - 4)) %>% 
-  rename("2Q2021" = "Saldo.total")  %>% 
-  rename("EntidadFed" = "Entidad.federativa")  %>% 
-  select("EntidadFed", "2Q2021")  # Select only the desired columns
 
-Q3_2021$id <- seq_len(nrow(Q2_2021))
-print(Q2_2021rows <- nrow(Q2_2021))
+Q32021 <- "Quarterly/02_04_3_trim_2021.xlsx"
+Q3_2021 <- read.xlsx(Q32021, startRow = 4) %>%
+  slice(1:(n() - 4)) %>% 
+  rename("3Q2021" = "Saldo.total")  %>% 
+  rename("EntidadFed" = "Entidad.federativa")  %>% 
+  select("EntidadFed", "3Q2021")  # Select only the desired column
+
+Q3_2021$id <- seq_len(nrow(Q3_2021))
+print(Q3_2021rows <- nrow(Q3_2021))
+
+Q42021 <- "Quarterly/02_04_4_trim_2021.xlsx"
+Q4_2021 <- read.xlsx(Q42021, startRow = 4) %>%
+  slice(1:(n() - 4)) %>% 
+  rename("4Q2021" = "Saldo.total")  %>% 
+  rename("EntidadFed" = "Entidad.federativa")  %>% 
+  select("EntidadFed", "4Q2021")  # Select only the desired column
+
+Q4_2021$id <- seq_len(nrow(Q4_2021))
+print(Q4_2021rows <- nrow(Q4_2021))
+
+merged_data_2021 <- Q1_2021 %>%
+  left_join(Q2_2021, by = "id") %>%
+  left_join(Q3_2021, by = "id") %>%
+  left_join(Q4_2021, by = "id")
+
+merged_data_2021  <- merged_data_2021 %>%
+  select(-EntidadFed.y, -EntidadFed.x.x, -EntidadFed.y.y)
 
 ```
 
@@ -167,7 +335,6 @@ merged_data_2019  <- merged_data_2019 %>%
   select(-EntidadFed.y, -EntidadFed.x)
 
 
-
 merged_data_2019_2020 <- merged_data_2019 %>%
   left_join(merged_data_2020, by = "id")
 
@@ -182,8 +349,20 @@ merged_data_2019_2020   <- merged_data_2019_2020 %>%
 merged_data_2019_2020 <- merged_data_2019 %>%
   left_join(merged_data_2020, by = "id")
 
-merged_data_2019_2020   <- merged_data_2019_2020 %>%
-  select(-EntidadFed.x, -id)
+merged_data_2019_2020_2021 <- merged_data_2019_2020 %>%
+  left_join(merged_data_2021, by = "id")
+
+merged_data_2019_2020_2021_2022 <- merged_data_2019_2020_2021 %>%
+  left_join(merged_data_2022, by = "id")
+
+merged_data_2019_2020_2021_2022_2023 <- merged_data_2019_2020_2021_2022 %>%
+  left_join(merged_data_2023, by = "id")
+
+merged_data_2019_2020_2021_2022_2023_2024 <- merged_data_2019_2020_2021_2022_2023 %>%
+  left_join(merged_data_2024, by = "id")
+
+#merged_data_2019_2020_2021 <- merged_data_2019_2020_2021 %>%
+#  select(-EntidadFed.x,EntidadFed.x.x,  -id)
 
 ```
 
@@ -227,33 +406,3 @@ write.xlsx(registro_deuda_estatal, file = "resgistro_deuda_estatal.xlsx")
 
 ```
 
-
-
-title: "Data_Cleaning_Quarterly"
-output: html_document
-date: "2025-01-25"
----
-
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-```
-
-## R Markdown
-
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-```{r cars}
-summary(cars)
-```
-
-## Including Plots
-
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
-```
-
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
