@@ -34,7 +34,6 @@ library(openxlsx)
 
 
 
-
 ```{r get data 2024 , echo=FALSE}
 ############################ 2024 ############################    
 
@@ -343,6 +342,71 @@ merged_data_2019_2020   <- merged_data_2019_2020 %>%
 
 
 ```
+
+
+```{r get data 2018 , echo=FALSE}
+############################ 2018 ############################    
+
+library(tidyr)
+
+Q12018 <- read_excel("Quarterly/02_04_1_trim_2018.xlsx", skip = 1)
+
+colnames(Q12018)[1] <- "Entidad.federativa"
+colnames(Q12018)[2] <- "Saldo.total"
+
+Q12018 <- Q12018 %>%
+  slice(1:(n() - 4)) %>%                # Remove the last 4 rows
+  rename(`1Q2018` = `Saldo.total`) %>%  # Rename "Saldo.total" to "1Q2018"
+  rename(EntidadFed = `Entidad.federativa`) %>% # Rename "Entidad.federativa" to "EntidadFed"
+  select(EntidadFed, `1Q2018`) %>%      # Select only the desired columns
+  drop_na()                             # Remove rows where any column has NA
+                          # Remove rows where any column has NA
+
+Q22018 <- read_excel("Quarterly/02_04_2_trim_2018.xlsx", skip = 1)
+
+colnames(Q22018)[1] <- "Entidad.federativa"
+colnames(Q22018)[2] <- "Saldo.total"
+
+Q22018 <- Q22018 %>%
+  slice(1:(n() - 4)) %>%                # Remove the last 4 rows
+  rename(`2Q2018` = `Saldo.total`) %>%  # Rename "Saldo.total" to "1Q2018"
+  rename(EntidadFed = `Entidad.federativa`) %>% # Rename "Entidad.federativa" to "EntidadFed"
+  select(EntidadFed, `2Q2018`) %>%      # Select only the desired columns
+  drop_na()                             # Remove rows where any column has NA
+                          # Remove rows where any column has NA
+
+Q32018 <- read_excel("Quarterly/02_04_3_trim_2018.xlsx", skip = 1)
+
+colnames(Q32018)[1] <- "Entidad.federativa"
+colnames(Q32018)[2] <- "Saldo.total"
+
+Q32018 <- Q32018 %>%
+  slice(1:(n() - 4)) %>%                # Remove the last 4 rows
+  rename(`3Q2018` = `Saldo.total`) %>%  # Rename "Saldo.total" to "1Q2018"
+  rename(EntidadFed = `Entidad.federativa`) %>% # Rename "Entidad.federativa" to "EntidadFed"
+  select(EntidadFed, `3Q2018`) %>%      # Select only the desired columns
+  drop_na()                             # Remove rows where any column has NA
+                          # Remove rows where any column has NA
+
+Q42018 <- read_excel("Quarterly/02_04_4_trim_2018.xlsx", skip = 1)
+
+colnames(Q42018)[1] <- "Entidad.federativa"
+colnames(Q42018)[2] <- "Saldo.total"
+
+Q42018 <- Q42018 %>%
+  slice(1:(n() - 4)) %>%                # Remove the last 4 rows
+  rename(`4Q2018` = `Saldo.total`) %>%  # Rename "Saldo.total" to "1Q2018"
+  rename(EntidadFed = `Entidad.federativa`) %>% # Rename "Entidad.federativa" to "EntidadFed"
+  select(EntidadFed, `4Q2018`) %>%      # Select only the desired columns
+  drop_na()                             # Remove rows where any column has NA
+                          # Remove rows where any column has NA
+
+```
+
+
+
+
+
 
 ```{r merge data years  , echo=FALSE}
 
