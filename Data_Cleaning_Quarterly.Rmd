@@ -354,33 +354,36 @@ Q12018 <- read_excel("Quarterly/02_04_1_trim_2018.xlsx", skip = 1)
 colnames(Q12018)[1] <- "Entidad.federativa"
 colnames(Q12018)[2] <- "Saldo.total"
 
-Q12018 <- Q12018 %>%
+Q1_2018 <- Q12018 %>%
   slice(1:(n() - 4)) %>%                # Remove the last 4 rows
   rename(`1Q2018` = `Saldo.total`) %>%  # Rename "Saldo.total" to "1Q2018"
   rename(EntidadFed = `Entidad.federativa`) %>% # Rename "Entidad.federativa" to "EntidadFed"
   select(EntidadFed, `1Q2018`) %>%      # Select only the desired columns
   drop_na()                             # Remove rows where any column has NA
                           # Remove rows where any column has NA
+Q1_2018$id <- seq_len(nrow(Q1_2018))
+
 
 Q22018 <- read_excel("Quarterly/02_04_2_trim_2018.xlsx", skip = 1)
 
 colnames(Q22018)[1] <- "Entidad.federativa"
 colnames(Q22018)[2] <- "Saldo.total"
 
-Q22018 <- Q22018 %>%
+Q2_2018 <- Q22018 %>%
   slice(1:(n() - 4)) %>%                # Remove the last 4 rows
   rename(`2Q2018` = `Saldo.total`) %>%  # Rename "Saldo.total" to "1Q2018"
   rename(EntidadFed = `Entidad.federativa`) %>% # Rename "Entidad.federativa" to "EntidadFed"
   select(EntidadFed, `2Q2018`) %>%      # Select only the desired columns
   drop_na()                             # Remove rows where any column has NA
                           # Remove rows where any column has NA
+Q2_2018$id <- seq_len(nrow(Q2_2018))
 
 Q32018 <- read_excel("Quarterly/02_04_3_trim_2018.xlsx", skip = 1)
 
 colnames(Q32018)[1] <- "Entidad.federativa"
 colnames(Q32018)[2] <- "Saldo.total"
 
-Q32018 <- Q32018 %>%
+Q3_2018 <- Q32018 %>%
   slice(1:(n() - 4)) %>%                # Remove the last 4 rows
   rename(`3Q2018` = `Saldo.total`) %>%  # Rename "Saldo.total" to "1Q2018"
   rename(EntidadFed = `Entidad.federativa`) %>% # Rename "Entidad.federativa" to "EntidadFed"
@@ -388,12 +391,15 @@ Q32018 <- Q32018 %>%
   drop_na()                             # Remove rows where any column has NA
                           # Remove rows where any column has NA
 
+Q3_2018$id <- seq_len(nrow(Q3_2018))
+
+
 Q42018 <- read_excel("Quarterly/02_04_4_trim_2018.xlsx", skip = 1)
 
 colnames(Q42018)[1] <- "Entidad.federativa"
 colnames(Q42018)[2] <- "Saldo.total"
 
-Q42018 <- Q42018 %>%
+Q4_2018 <- Q42018 %>%
   slice(1:(n() - 4)) %>%                # Remove the last 4 rows
   rename(`4Q2018` = `Saldo.total`) %>%  # Rename "Saldo.total" to "1Q2018"
   rename(EntidadFed = `Entidad.federativa`) %>% # Rename "Entidad.federativa" to "EntidadFed"
@@ -401,14 +407,97 @@ Q42018 <- Q42018 %>%
   drop_na()                             # Remove rows where any column has NA
                           # Remove rows where any column has NA
 
+Q4_2018$id <- seq_len(nrow(Q4_2018))
+
+merged_data_2018 <- Q1_2018 %>%
+  left_join(Q2_2018, by = "id") %>%
+  left_join(Q3_2018, by = "id") %>%
+  left_join(Q4_2018, by = "id")
+
+merged_data_2018  <- merged_data_2018 %>%
+  select(-EntidadFed.y, -EntidadFed.x.x, -EntidadFed.y.y)
+
+```
+
+
+```{r get data 2017 , echo=FALSE}
+############################ 2017 ############################    
+
+library(tidyr)
+
+Q12017 <- read_excel("Quarterly/02_04_1_trim_2017.xlsx", skip = 1)
+colnames(Q12017)[1] <- "Entidad.federativa"
+colnames(Q12017)[2] <- "Saldo.total"
+
+Q1_2017 <- Q12017 %>%
+  slice(1:(n() - 4)) %>%                # Remove the last 4 rows
+  rename(`1Q2017` = `Saldo.total`) %>%  # Rename "Saldo.total" to "1Q2018"
+  rename(EntidadFed = `Entidad.federativa`) %>% # Rename "Entidad.federativa" to "EntidadFed"
+  select(EntidadFed, `1Q2017`) %>%      # Select only the desired columns
+  drop_na()                             # Remove rows where any column has NA
+                          # Remove rows where any column has NA
+Q1_2017$id <- seq_len(nrow(Q1_2017))
+
+
+Q22017 <- read_excel("Quarterly/02_04_2_trim_2017.xlsx", skip = 1)
+colnames(Q22017)[1] <- "Entidad.federativa"
+colnames(Q22017)[2] <- "Saldo.total"
+
+Q2_2017 <- Q22017 %>%
+  slice(1:(n() - 4)) %>%                # Remove the last 4 rows
+  rename(`2Q2017` = `Saldo.total`) %>%  # Rename "Saldo.total" to "1Q2018"
+  rename(EntidadFed = `Entidad.federativa`) %>% # Rename "Entidad.federativa" to "EntidadFed"
+  select(EntidadFed, `2Q2017`) %>%      # Select only the desired columns
+  drop_na()                             # Remove rows where any column has NA
+                          # Remove rows where any column has NA
+Q2_2017$id <- seq_len(nrow(Q2_2017))
+
+
+Q32017 <- read_excel("Quarterly/02_04_3_trim_2017.xlsx", skip = 1)
+colnames(Q32017)[1] <- "Entidad.federativa"
+colnames(Q32017)[2] <- "Saldo.total"
+
+Q3_2017 <- Q32017 %>%
+  slice(1:(n() - 4)) %>%                # Remove the last 4 rows
+  rename(`3Q2017` = `Saldo.total`) %>%  # Rename "Saldo.total" to "1Q2018"
+  rename(EntidadFed = `Entidad.federativa`) %>% # Rename "Entidad.federativa" to "EntidadFed"
+  select(EntidadFed, `3Q2017`) %>%      # Select only the desired columns
+  drop_na()                             # Remove rows where any column has NA
+                          # Remove rows where any column has NA
+Q3_2017$id <- seq_len(nrow(Q3_2017))
+
+
+Q42017 <- read_excel("Quarterly/02_04_4_trim_2017.xlsx", skip = 1)
+colnames(Q42017)[1] <- "Entidad.federativa"
+colnames(Q42017)[2] <- "Saldo.total"
+
+Q4_2017 <- Q42017 %>%
+  slice(1:(n() - 4)) %>%                # Remove the last 4 rows
+  rename(`4Q2017` = `Saldo.total`) %>%  # Rename "Saldo.total" to "1Q2018"
+  rename(EntidadFed = `Entidad.federativa`) %>% # Rename "Entidad.federativa" to "EntidadFed"
+  select(EntidadFed, `4Q2017`) %>%      # Select only the desired columns
+  drop_na()                             # Remove rows where any column has NA
+                          # Remove rows where any column has NA
+Q4_2017$id <- seq_len(nrow(Q4_2017))
+
+merged_data_2017 <- Q1_2017 %>%
+  left_join(Q2_2017, by = "id") %>%
+  left_join(Q3_2017, by = "id") %>%
+  left_join(Q4_2017, by = "id")
+
+merged_data_2017  <- merged_data_2017 %>%
+  select(-EntidadFed.y, -EntidadFed.x.x, -EntidadFed.y.y)
+
 ```
 
 
 
 
 
-
 ```{r merge data years  , echo=FALSE}
+
+merged_data_2019_2020 <- merged_data_2019 %>%
+  left_join(merged_data_2020, by = "id")
 
 merged_data_2019_2020 <- merged_data_2019 %>%
   left_join(merged_data_2020, by = "id")
@@ -425,8 +514,17 @@ merged_data_2019_2020_2021_2022_2023 <- merged_data_2019_2020_2021_2022 %>%
 merged_data_2019_2020_2021_2022_2023_2024 <- merged_data_2019_2020_2021_2022_2023 %>%
   left_join(merged_data_2024, by = "id")
 
-#merged_data_2019_2020_2021 <- merged_data_2019_2020_2021 %>%
-#  select(-EntidadFed.x,EntidadFed.x.x,  -id)
+merged_data_2018_2019_2020_2021_2022_2023_2024 <- merged_data_2019_2020_2021_2022_2023 %>%
+  left_join(merged_data_2018, by = "id")
+
+merged_data_2017_2018_2019_2020_2021_2022_2023_2024 <- merged_data_2018_2019_2020_2021_2022_2023_2024 %>%
+  left_join(merged_data_2017, by = "id")
+
+
+merged_data_2017_2018_2019_2020_2021_2022_2023_2024 <- merged_data_2017_2018_2019_2020_2021_2022_2023_2024 %>%
+  select(-EntidadFed.x.x, -EntidadFed.x.y, -EntidadFed.x.x.x, -EntidadFed.x.x.x.x, -EntidadFed.x.y.y, -EntidadFed.x.y.y.y,-id)
+
+
 
 ```
 
