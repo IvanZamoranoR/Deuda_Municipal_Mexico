@@ -472,7 +472,7 @@ colnames(Q42017)[1] <- "Entidad.federativa"
 colnames(Q42017)[2] <- "Saldo.total"
 
 Q4_2017 <- Q42017 %>%
-  slice(1:(n() - 4)) %>%                # Remove the last 4 rows
+  slice(1:(n() - 4)) %>%                # Remove the last 4 rows due to format
   rename(`4Q2017` = `Saldo.total`) %>%  # Rename "Saldo.total" to "1Q2018"
   rename(EntidadFed = `Entidad.federativa`) %>% # Rename "Entidad.federativa" to "EntidadFed"
   select(EntidadFed, `4Q2017`) %>%      # Select only the desired columns
@@ -487,6 +487,7 @@ merged_data_2017 <- Q1_2017 %>%
 
 merged_data_2017  <- merged_data_2017 %>%
   select(-EntidadFed.y, -EntidadFed.x.x, -EntidadFed.y.y)
+
 
 ```
 
