@@ -11,7 +11,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ### Mexico Public Debt Data Cleaning 
 ## Fuente: Secretaría de Hacienda y Crédito Público (SHCP) - Registro Público Único
 ## Link: https://www.disciplinafinanciera.hacienda.gob.mx/es/DISCIPLINA_FINANCIERA/Registro_Publico_Unico
-## Authors Iván Zamorano, Rafael Ch
+## Author Iván Zamorano
 
 # Libraries
 
@@ -21,6 +21,8 @@ library(readxl)
 library(dplyr)
 library(magrittr)
 library(openxlsx)
+library(stringi)
+
 ```
 
 
@@ -35,36 +37,198 @@ library(openxlsx)
 
 
 ```{r get data 2024 , echo=FALSE}
-############################ 2024 ############################    
+####################################################### 2024 ####################################################### 
+library(tidyr)
+library(readxl)
+library(dplyr)
+library(janitor)
+library(stringi)
+library(openxlsx)   
+
+
+############################ Q12024 ############################
 
 Q12024 <- "Quarterly/02_04_1_trim_2024.xlsx"
-Q1_2024 <- read.xlsx(Q12024, startRow = 4) %>%
+Q1_2024_M <- read.xlsx(Q12024, startRow = 4) %>%
   slice(1:(n() - 4)) %>% 
   rename("1Q2024" = "Saldo.total")  %>% 
   rename("EntidadFed" = "Entidad.Federativa")  %>% 
   select("EntidadFed", "1Q2024")  # Select only the desired column
-Q1_2024$id <- seq_len(nrow(Q1_2024))
-print(Q1_2024rows <- nrow(Q1_2024))
+Q1_2024_M$id <- seq_len(nrow(Q1_2024_M))
+print(Q1_2024rows <- nrow(Q1_2024_M))
 
 
-Q22024 <- "Quarterly/02_04_2_trim_2023.xlsx"
-Q2_2024 <- read.xlsx(Q22024, startRow = 4) %>%
+# Load and clean state-level debt data
+Q1_2024_E <- read_excel("Quarterly/02_04_1_trim_2024.xlsx", range = "A4:F2487") %>%
+    clean_names() %>%
+    slice(1:(n() - 4)) %>%
+    rename(EntidadFed = entidad_federativa, `1Q2024` = saldo_total) %>%
+    mutate(
+        EntidadFed = toupper(EntidadFed),
+        EntidadFed = stri_trans_general(EntidadFed, "Latin-ASCII")
+    ) %>%
+    select(EntidadFed, `1Q2024`) %>%
+    drop_na()
+
+# Load municipality data
+municipios_data <- read_excel("Quarterly/MUNICIPIOS_202408.xlsx") %>%
+  mutate(MUNICIPIO = toupper(MUNICIPIO),  # Standardize text
+         MUNICIPIO = stri_trans_general(MUNICIPIO, "Latin-ASCII"))
+
+# Load state names
+estados_data <- read.csv("Quarterly/estados.csv", stringsAsFactors = FALSE) %>%
+  rename(ESTADO = Nombre_Mayuscula) %>%
+  mutate(ESTADO = toupper(ESTADO), 
+         ESTADO = stri_trans_general(ESTADO, "Latin-ASCII"))
+
+merged_data <- inner_join(municipios_data, Q1_2024_E, by = c("MUNICIPIO" = "EntidadFed"))
+
+#Matching Municipio and Estado with the same name
+
+merged_data <- merged_data %>%
+  mutate(Matching_Mun_State = ifelse(MUNICIPIO %in% estados_data$ESTADO, 1, 0))
+filtered_data <- merged_data %>%
+  filter(Matching_Mun_State == 1)
+
+#Make the debt data as numeric
+filtered_data$`1Q2024` <- as.numeric(filtered_data$`1Q2024`)
+
+#Filter for rows with the maximum '1Q2024' value within each 'MUNICIPIO'
+
+Estados_1Q2024 <- filtered_data %>%
+  group_by(MUNICIPIO) %>%
+  filter(`1Q2024` == max(`1Q2024`, na.rm = TRUE)) %>%
+  filter(!duplicated(MUNICIPIO)) %>%
+  select('MUNICIPIO', '1Q2024') %>%
+  ungroup()
+
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+
+############################ Q22024 ############################   
+
+Q22024 <- "Quarterly/02_04_2_trim_2024.xlsx"
+Q2_2024_M <- read.xlsx(Q22024, startRow = 4) %>%
   slice(1:(n() - 4)) %>% 
   rename("2Q2024" = "Saldo.total")  %>% 
   rename("EntidadFed" = "Entidad.Federativa")  %>% 
   select("EntidadFed", "2Q2024")  # Select only the desired column
-Q2_2024$id <- seq_len(nrow(Q2_2024))
-print(Q2_2024rows <- nrow(Q2_2024))
+Q2_2024_M$id <- seq_len(nrow(Q2_2024_M))
+print(Q2_2024rows <- nrow(Q2_2024_M))
 
 
-Q32024 <- "Quarterly/02_04_3_trim_2023.xlsx"
-Q3_2024 <- read.xlsx(Q32024, startRow = 4) %>%
+# Load and clean state-level debt data
+Q2_2024_E <- read_excel("Quarterly/02_04_2_trim_2024.xlsx", range = "A4:F2487") %>%
+    clean_names() %>%
+    slice(1:(n() - 4)) %>%
+    rename(EntidadFed = entidad_federativa, `2Q2024` = saldo_total) %>%
+    mutate(
+        EntidadFed = toupper(EntidadFed),
+        EntidadFed = stri_trans_general(EntidadFed, "Latin-ASCII")
+    ) %>%
+    select(EntidadFed, `2Q2024`) %>%
+    drop_na()
+
+# Load municipality data
+municipios_data <- read_excel("Quarterly/MUNICIPIOS_202408.xlsx") %>%
+  mutate(MUNICIPIO = toupper(MUNICIPIO),  # Standardize text
+         MUNICIPIO = stri_trans_general(MUNICIPIO, "Latin-ASCII"))
+
+# Load state names
+estados_data <- read.csv("Quarterly/estados.csv", stringsAsFactors = FALSE) %>%
+  rename(ESTADO = Nombre_Mayuscula) %>%
+  mutate(ESTADO = toupper(ESTADO), 
+         ESTADO = stri_trans_general(ESTADO, "Latin-ASCII"))
+
+merged_data <- inner_join(municipios_data, Q2_2024_E, by = c("MUNICIPIO" = "EntidadFed"))
+
+#Matching Municipio and Estado with the same name
+
+merged_data <- merged_data %>%
+  mutate(Matching_Mun_State = ifelse(MUNICIPIO %in% estados_data$ESTADO, 1, 0))
+filtered_data <- merged_data %>%
+  filter(Matching_Mun_State == 1)
+
+#Make the debt data as numeric
+filtered_data$`2Q2024` <- as.numeric(filtered_data$`2Q2024`)
+
+#Filter for rows with the maximum '2Q2024' value within each 'MUNICIPIO'
+
+Estados_2Q2024 <- filtered_data %>%
+  group_by(MUNICIPIO) %>%
+  filter(`2Q2024` == max(`2Q2024`, na.rm = TRUE)) %>%
+  filter(!duplicated(MUNICIPIO)) %>%
+  select('MUNICIPIO', '2Q2024') %>%
+  ungroup()
+
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+
+############################ Q32024 ############################   
+
+Q32024 <- "Quarterly/02_04_3_trim_2024.xlsx"
+Q3_2024_M <- read.xlsx(Q32024, startRow = 4) %>%
   slice(1:(n() - 4)) %>% 
   rename("3Q2024" = "Saldo.total")  %>% 
   rename("EntidadFed" = "Entidad.Federativa")  %>% 
   select("EntidadFed", "3Q2024")  # Select only the desired column
-Q3_2024$id <- seq_len(nrow(Q3_2024))
-print(Q3_2024rows <- nrow(Q3_2024))
+Q3_2024_M$id <- seq_len(nrow(Q3_2024_M))
+print(Q3_2024rows <- nrow(Q3_2024_M))
+
+
+# Load and clean state-level debt data
+Q3_2024_E <- read_excel("Quarterly/02_04_3_trim_2024.xlsx", range = "A4:F2487") %>%
+    clean_names() %>%
+    slice(1:(n() - 4)) %>%
+    rename(EntidadFed = entidad_federativa, `3Q2024` = saldo_total) %>%
+    mutate(
+        EntidadFed = toupper(EntidadFed),
+        EntidadFed = stri_trans_general(EntidadFed, "Latin-ASCII")
+    ) %>%
+    select(EntidadFed, `3Q2024`) %>%
+    drop_na()
+
+# Load municipality data
+municipios_data <- read_excel("Quarterly/MUNICIPIOS_202408.xlsx") %>%
+  mutate(MUNICIPIO = toupper(MUNICIPIO),  # Standardize text
+         MUNICIPIO = stri_trans_general(MUNICIPIO, "Latin-ASCII"))
+
+# Load state names
+estados_data <- read.csv("Quarterly/estados.csv", stringsAsFactors = FALSE) %>%
+  rename(ESTADO = Nombre_Mayuscula) %>%
+  mutate(ESTADO = toupper(ESTADO), 
+         ESTADO = stri_trans_general(ESTADO, "Latin-ASCII"))
+
+merged_data <- inner_join(municipios_data, Q3_2024_E, by = c("MUNICIPIO" = "EntidadFed"))
+
+#Matching Municipio and Estado with the same name
+
+merged_data <- merged_data %>%
+  mutate(Matching_Mun_State = ifelse(MUNICIPIO %in% estados_data$ESTADO, 1, 0))
+filtered_data <- merged_data %>%
+  filter(Matching_Mun_State == 1)
+
+#Make the debt data as numeric
+filtered_data$`3Q2024` <- as.numeric(filtered_data$`3Q2024`)
+
+#Filter for rows with the maximum '3Q2024' value within each 'MUNICIPIO'
+
+Estados_3Q2024 <- filtered_data %>%
+  group_by(MUNICIPIO) %>%
+  filter(`3Q2024` == max(`3Q2024`, na.rm = TRUE)) %>%
+  filter(!duplicated(MUNICIPIO)) %>%
+  select('MUNICIPIO', '3Q2024') %>%
+  ungroup()
+
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+
 
 merged_data_2024 <- Q1_2024 %>%
   left_join(Q2_2024, by = "id") %>%
@@ -78,46 +242,260 @@ merged_data_2024  <- merged_data_2024 %>%
 
 
 ```{r get data 2023 , echo=FALSE}
-############################ 2023 ############################    
+####################################################### 2023 ####################################################### 
+library(tidyr)
+library(readxl)
+library(dplyr)
+library(janitor)
+library(stringi)
+library(openxlsx)   
+
+
+############################ Q12023 ############################ 
 
 Q12023 <- "Quarterly/02_04_1_trim_2023.xlsx"
-Q1_2023 <- read.xlsx(Q12023, startRow = 4) %>%
+Q1_2023_M <- read.xlsx(Q12023, startRow = 4) %>%
   slice(1:(n() - 4)) %>% 
   rename("1Q2023" = "Saldo.total")  %>% 
   rename("EntidadFed" = "Entidad.federativa")  %>% 
   select("EntidadFed", "1Q2023")  # Select only the desired column
-Q1_2023$id <- seq_len(nrow(Q1_2023))
-print(Q1_2023rows <- nrow(Q1_2023))
+Q1_2023_M$id <- seq_len(nrow(Q1_2023_M))
+print(Q1_2023rows <- nrow(Q1_2023_M))
+
+
+# Load and clean state-level debt data
+Q1_2023_E <- read_excel("Quarterly/02_04_1_trim_2023.xlsx", range = "A4:F2487") %>%
+    clean_names() %>%
+    slice(1:(n() - 4)) %>%
+    rename(EntidadFed = entidad_federativa, `1Q2023` = saldo_total) %>%
+    mutate(
+        EntidadFed = toupper(EntidadFed),
+        EntidadFed = stri_trans_general(EntidadFed, "Latin-ASCII")
+    ) %>%
+    select(EntidadFed, `1Q2023`) %>%
+    drop_na()
+
+# Load municipality data
+municipios_data <- read_excel("Quarterly/MUNICIPIOS_202408.xlsx") %>%
+  mutate(MUNICIPIO = toupper(MUNICIPIO),  # Standardize text
+         MUNICIPIO = stri_trans_general(MUNICIPIO, "Latin-ASCII"))
+
+# Load state names
+estados_data <- read.csv("Quarterly/estados.csv", stringsAsFactors = FALSE) %>%
+  rename(ESTADO = Nombre_Mayuscula) %>%
+  mutate(ESTADO = toupper(ESTADO), 
+         ESTADO = stri_trans_general(ESTADO, "Latin-ASCII"))
+
+merged_data <- inner_join(municipios_data, Q1_2023_E, by = c("MUNICIPIO" = "EntidadFed"))
+
+#Matching Municipio and Estado with the same name
+
+merged_data <- merged_data %>%
+  mutate(Matching_Mun_State = ifelse(MUNICIPIO %in% estados_data$ESTADO, 1, 0))
+filtered_data <- merged_data %>%
+  filter(Matching_Mun_State == 1)
+
+#Make the debt data as numeric
+filtered_data$`1Q2023` <- as.numeric(filtered_data$`1Q2023`)
+
+#Filter for rows with the maximum '1Q2023' value within each 'MUNICIPIO'
+
+Estados_1Q2023 <- filtered_data %>%
+  group_by(MUNICIPIO) %>%
+  filter(`1Q2023` == max(`1Q2023`, na.rm = TRUE)) %>%
+  filter(!duplicated(MUNICIPIO)) %>%
+  select('MUNICIPIO', '1Q2023') %>%
+  ungroup()
+
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+
+############################ Q22023 ############################   
 
 
 Q22023 <- "Quarterly/02_04_2_trim_2023.xlsx"
-Q2_2023 <- read.xlsx(Q22023, startRow = 4) %>%
+Q2_2023_M <- read.xlsx(Q22023, startRow = 4) %>%
   slice(1:(n() - 4)) %>% 
   rename("2Q2023" = "Saldo.total")  %>% 
   rename("EntidadFed" = "Entidad.Federativa")  %>% 
   select("EntidadFed", "2Q2023")  # Select only the desired column
-Q2_2023$id <- seq_len(nrow(Q2_2023))
-print(Q2_2023rows <- nrow(Q2_2023))
+Q2_2023_M$id <- seq_len(nrow(Q2_2023_M))
+print(Q2_2023rows <- nrow(Q2_2023_M))
 
+
+# Load and clean state-level debt data
+Q2_2023_E <- read_excel("Quarterly/02_04_2_trim_2023.xlsx", range = "A4:F2487") %>%
+    clean_names() %>%
+    slice(1:(n() - 4)) %>%
+    rename(EntidadFed = entidad_federativa, `2Q2023` = saldo_total) %>%
+    mutate(
+        EntidadFed = toupper(EntidadFed),
+        EntidadFed = stri_trans_general(EntidadFed, "Latin-ASCII")
+    ) %>%
+    select(EntidadFed, `2Q2023`) %>%
+    drop_na()
+
+# Load municipality data
+municipios_data <- read_excel("Quarterly/MUNICIPIOS_202408.xlsx") %>%
+  mutate(MUNICIPIO = toupper(MUNICIPIO),  # Standardize text
+         MUNICIPIO = stri_trans_general(MUNICIPIO, "Latin-ASCII"))
+
+# Load state names
+estados_data <- read.csv("Quarterly/estados.csv", stringsAsFactors = FALSE) %>%
+  rename(ESTADO = Nombre_Mayuscula) %>%
+  mutate(ESTADO = toupper(ESTADO), 
+         ESTADO = stri_trans_general(ESTADO, "Latin-ASCII"))
+
+merged_data <- inner_join(municipios_data, Q2_2023_E, by = c("MUNICIPIO" = "EntidadFed"))
+
+#Matching Municipio and Estado with the same name
+
+merged_data <- merged_data %>%
+  mutate(Matching_Mun_State = ifelse(MUNICIPIO %in% estados_data$ESTADO, 1, 0))
+filtered_data <- merged_data %>%
+  filter(Matching_Mun_State == 1)
+
+#Make the debt data as numeric
+filtered_data$`2Q2023` <- as.numeric(filtered_data$`2Q2023`)
+
+#Filter for rows with the maximum '2Q2023' value within each 'MUNICIPIO'
+
+Estados_2Q2023 <- filtered_data %>%
+  group_by(MUNICIPIO) %>%
+  filter(`2Q2023` == max(`2Q2023`, na.rm = TRUE)) %>%
+  filter(!duplicated(MUNICIPIO)) %>%
+  select('MUNICIPIO', '2Q2023') %>%
+  ungroup()
+
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+
+############################ Q32023 ############################   
 
 Q32023 <- "Quarterly/02_04_3_trim_2023.xlsx"
-Q3_2023 <- read.xlsx(Q32023, startRow = 4) %>%
+Q3_2023_M <- read.xlsx(Q32023, startRow = 4) %>%
   slice(1:(n() - 4)) %>% 
   rename("3Q2023" = "Saldo.total")  %>% 
   rename("EntidadFed" = "Entidad.Federativa")  %>% 
   select("EntidadFed", "3Q2023")  # Select only the desired column
-Q3_2023$id <- seq_len(nrow(Q3_2023))
-print(Q3_2023rows <- nrow(Q3_2023))
+Q3_2023_M$id <- seq_len(nrow(Q3_2023_M))
+print(Q3_2023rows <- nrow(Q3_2023_M))
 
+
+# Load and clean state-level debt data
+Q3_2023_E <- read_excel("Quarterly/02_04_3_trim_2023.xlsx", range = "A4:F2487") %>%
+    clean_names() %>%
+    slice(1:(n() - 4)) %>%
+    rename(EntidadFed = entidad_federativa, `3Q2023` = saldo_total) %>%
+    mutate(
+        EntidadFed = toupper(EntidadFed),
+        EntidadFed = stri_trans_general(EntidadFed, "Latin-ASCII")
+    ) %>%
+    select(EntidadFed, `3Q2023`) %>%
+    drop_na()
+
+# Load municipality data
+municipios_data <- read_excel("Quarterly/MUNICIPIOS_202408.xlsx") %>%
+  mutate(MUNICIPIO = toupper(MUNICIPIO),  # Standardize text
+         MUNICIPIO = stri_trans_general(MUNICIPIO, "Latin-ASCII"))
+
+# Load state names
+estados_data <- read.csv("Quarterly/estados.csv", stringsAsFactors = FALSE) %>%
+  rename(ESTADO = Nombre_Mayuscula) %>%
+  mutate(ESTADO = toupper(ESTADO), 
+         ESTADO = stri_trans_general(ESTADO, "Latin-ASCII"))
+
+merged_data <- inner_join(municipios_data, Q3_2023_E, by = c("MUNICIPIO" = "EntidadFed"))
+
+#Matching Municipio and Estado with the same name
+
+merged_data <- merged_data %>%
+  mutate(Matching_Mun_State = ifelse(MUNICIPIO %in% estados_data$ESTADO, 1, 0))
+filtered_data <- merged_data %>%
+  filter(Matching_Mun_State == 1)
+
+#Make the debt data as numeric
+filtered_data$`3Q2023` <- as.numeric(filtered_data$`3Q2023`)
+
+#Filter for rows with the maximum '3Q2023' value within each 'MUNICIPIO'
+
+Estados_3Q2023 <- filtered_data %>%
+  group_by(MUNICIPIO) %>%
+  filter(`3Q2023` == max(`3Q2023`, na.rm = TRUE)) %>%
+  filter(!duplicated(MUNICIPIO)) %>%
+  select('MUNICIPIO', '3Q2023') %>%
+  ungroup()
+
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+
+############################ Q42023 ############################   
 
 Q42023 <- "Quarterly/02_04_4_trim_2023.xlsx"
-Q4_2023 <- read.xlsx(Q42023, startRow = 4) %>%
+Q4_2023_M <- read.xlsx(Q42023, startRow = 4) %>%
   slice(1:(n() - 4)) %>% 
   rename("4Q2023" = "Saldo.total")  %>% 
   rename("EntidadFed" = "Entidad.Federativa")  %>% 
   select("EntidadFed", "4Q2023")  # Select only the desired column
-Q4_2023$id <- seq_len(nrow(Q4_2023))
-print(Q4_2023rows <- nrow(Q4_2023))
+Q4_2023_M$id <- seq_len(nrow(Q4_2023_M))
+print(Q4_2023rows <- nrow(Q4_2023_M))
+
+
+# Load and clean state-level debt data
+Q4_2023_E <- read_excel("Quarterly/02_04_4_trim_2023.xlsx", range = "A4:F2487") %>%
+    clean_names() %>%
+    slice(1:(n() - 4)) %>%
+    rename(EntidadFed = entidad_federativa, `4Q2023` = saldo_total) %>%
+    mutate(
+        EntidadFed = toupper(EntidadFed),
+        EntidadFed = stri_trans_general(EntidadFed, "Latin-ASCII")
+    ) %>%
+    select(EntidadFed, `4Q2023`) %>%
+    drop_na()
+
+# Load municipality data
+municipios_data <- read_excel("Quarterly/MUNICIPIOS_202408.xlsx") %>%
+  mutate(MUNICIPIO = toupper(MUNICIPIO),  # Standardize text
+         MUNICIPIO = stri_trans_general(MUNICIPIO, "Latin-ASCII"))
+
+# Load state names
+estados_data <- read.csv("Quarterly/estados.csv", stringsAsFactors = FALSE) %>%
+  rename(ESTADO = Nombre_Mayuscula) %>%
+  mutate(ESTADO = toupper(ESTADO), 
+         ESTADO = stri_trans_general(ESTADO, "Latin-ASCII"))
+
+merged_data <- inner_join(municipios_data, Q4_2023_E, by = c("MUNICIPIO" = "EntidadFed"))
+
+#Matching Municipio and Estado with the same name
+
+merged_data <- merged_data %>%
+  mutate(Matching_Mun_State = ifelse(MUNICIPIO %in% estados_data$ESTADO, 1, 0))
+filtered_data <- merged_data %>%
+  filter(Matching_Mun_State == 1)
+
+#Make the debt data as numeric
+filtered_data$`4Q2023` <- as.numeric(filtered_data$`4Q2023`)
+
+#Filter for rows with the maximum '4Q2023' value within each 'MUNICIPIO'
+
+Estados_4Q2023 <- filtered_data %>%
+  group_by(MUNICIPIO) %>%
+  filter(`4Q2023` == max(`4Q2023`, na.rm = TRUE)) %>%
+  filter(!duplicated(MUNICIPIO)) %>%
+  select('MUNICIPIO', '4Q2023') %>%
+  ungroup()
+
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+
 
 merged_data_2023 <- Q1_2023 %>%
   left_join(Q2_2023, by = "id") %>%
@@ -130,46 +508,257 @@ merged_data_2023  <- merged_data_2023 %>%
 ```
 
 ```{r get data 2022 , echo=FALSE}
-############################ 2022 ############################    
+####################################################### 2022 ####################################################### 
+library(tidyr)
+library(readxl)
+library(dplyr)
+library(janitor)
+library(stringi)
+library(openxlsx)   
+
+
+############################ Q12022 ############################ 
 
 Q12022 <- "Quarterly/02_04_1_trim_2022.xlsx"
-Q1_2022 <- read.xlsx(Q12022, startRow = 4) %>%
+Q1_2022_M <- read.xlsx(Q12022, startRow = 4) %>%
   slice(1:(n() - 4)) %>% 
   rename("1Q2022" = "Saldo.total")  %>% 
   rename("EntidadFed" = "Entidad.federativa")  %>% 
   select("EntidadFed", "1Q2022")  # Select only the desired column
-Q1_2022$id <- seq_len(nrow(Q1_2022))
-print(Q1_2022rows <- nrow(Q1_2022))
+Q1_2022_M$id <- seq_len(nrow(Q1_2022_M))
+print(Q1_2022rows <- nrow(Q1_2022_M))
 
+
+# Load and clean state-level debt data
+Q1_2022_E <- read_excel("Quarterly/02_04_1_trim_2022.xlsx", range = "A4:F2487") %>%
+    clean_names() %>%
+    slice(1:(n() - 4)) %>%
+    rename(EntidadFed = entidad_federativa, `1Q2022` = saldo_total) %>%
+    mutate(
+        EntidadFed = toupper(EntidadFed),
+        EntidadFed = stri_trans_general(EntidadFed, "Latin-ASCII")
+    ) %>%
+    select(EntidadFed, `1Q2022`) %>%
+    drop_na()
+
+# Load municipality data
+municipios_data <- read_excel("Quarterly/MUNICIPIOS_202408.xlsx") %>%
+  mutate(MUNICIPIO = toupper(MUNICIPIO),  # Standardize text
+         MUNICIPIO = stri_trans_general(MUNICIPIO, "Latin-ASCII"))
+
+# Load state names
+estados_data <- read.csv("Quarterly/estados.csv", stringsAsFactors = FALSE) %>%
+  rename(ESTADO = Nombre_Mayuscula) %>%
+  mutate(ESTADO = toupper(ESTADO), 
+         ESTADO = stri_trans_general(ESTADO, "Latin-ASCII"))
+
+merged_data <- inner_join(municipios_data, Q1_2022_E, by = c("MUNICIPIO" = "EntidadFed"))
+
+#Matching Municipio and Estado with the same name
+
+merged_data <- merged_data %>%
+  mutate(Matching_Mun_State = ifelse(MUNICIPIO %in% estados_data$ESTADO, 1, 0))
+filtered_data <- merged_data %>%
+  filter(Matching_Mun_State == 1)
+
+#Make the debt data as numeric
+filtered_data$`1Q2022` <- as.numeric(filtered_data$`1Q2022`)
+
+#Filter for rows with the maximum '1Q2022' value within each 'MUNICIPIO'
+
+Estados_1Q2022 <- filtered_data %>%
+  group_by(MUNICIPIO) %>%
+  filter(`1Q2022` == max(`1Q2022`, na.rm = TRUE)) %>%
+  filter(!duplicated(MUNICIPIO)) %>%
+  select('MUNICIPIO', '1Q2022') %>%
+  ungroup()
+
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+
+############################ Q22022 ############################   
 
 Q22022 <- "Quarterly/02_04_2_trim_2022.xlsx"
-Q2_2022 <- read.xlsx(Q22022, startRow = 4) %>%
+Q2_2022_M <- read.xlsx(Q22022, startRow = 4) %>%
   slice(1:(n() - 4)) %>% 
   rename("2Q2022" = "Saldo.total")  %>% 
   rename("EntidadFed" = "Entidad.federativa")  %>% 
   select("EntidadFed", "2Q2022")  # Select only the desired column
-Q2_2022$id <- seq_len(nrow(Q2_2022))
-print(Q2_2022rows <- nrow(Q2_2022))
+Q2_2022_M$id <- seq_len(nrow(Q2_2022_M))
+print(Q2_2022rows <- nrow(Q2_2022_M))
 
+# Load and clean state-level debt data
+Q2_2022_E <- read_excel("Quarterly/02_04_2_trim_2022.xlsx", range = "A4:F2487") %>%
+    clean_names() %>%
+    slice(1:(n() - 4)) %>%
+    rename(EntidadFed = entidad_federativa, `2Q2022` = saldo_total) %>%
+    mutate(
+        EntidadFed = toupper(EntidadFed),
+        EntidadFed = stri_trans_general(EntidadFed, "Latin-ASCII")
+    ) %>%
+    select(EntidadFed, `2Q2022`) %>%
+    drop_na()
+
+# Load municipality data
+municipios_data <- read_excel("Quarterly/MUNICIPIOS_202408.xlsx") %>%
+  mutate(MUNICIPIO = toupper(MUNICIPIO),  # Standardize text
+         MUNICIPIO = stri_trans_general(MUNICIPIO, "Latin-ASCII"))
+
+# Load state names
+estados_data <- read.csv("Quarterly/estados.csv", stringsAsFactors = FALSE) %>%
+  rename(ESTADO = Nombre_Mayuscula) %>%
+  mutate(ESTADO = toupper(ESTADO), 
+         ESTADO = stri_trans_general(ESTADO, "Latin-ASCII"))
+
+merged_data <- inner_join(municipios_data, Q2_2022_E, by = c("MUNICIPIO" = "EntidadFed"))
+
+#Matching Municipio and Estado with the same name
+
+merged_data <- merged_data %>%
+  mutate(Matching_Mun_State = ifelse(MUNICIPIO %in% estados_data$ESTADO, 1, 0))
+filtered_data <- merged_data %>%
+  filter(Matching_Mun_State == 1)
+
+#Make the debt data as numeric
+filtered_data$`2Q2022` <- as.numeric(filtered_data$`2Q2022`)
+
+#Filter for rows with the maximum '2Q2022' value within each 'MUNICIPIO'
+
+Estados_2Q2022 <- filtered_data %>%
+  group_by(MUNICIPIO) %>%
+  filter(`2Q2022` == max(`2Q2022`, na.rm = TRUE)) %>%
+  filter(!duplicated(MUNICIPIO)) %>%
+  select('MUNICIPIO', '2Q2022') %>%
+  ungroup()
+
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+
+############################ Q32022 ############################   
 
 Q32022 <- "Quarterly/02_04_3_trim_2022.xlsx"
-Q3_2022 <- read.xlsx(Q32022, startRow = 4) %>%
+Q3_2022_M <- read.xlsx(Q32022, startRow = 4) %>%
   slice(1:(n() - 4)) %>% 
   rename("3Q2022" = "Saldo.total")  %>% 
   rename("EntidadFed" = "Entidad.federativa")  %>% 
   select("EntidadFed", "3Q2022")  # Select only the desired column
-Q3_2022$id <- seq_len(nrow(Q3_2022))
-print(Q3_2022rows <- nrow(Q3_2022))
+Q3_2022_M$id <- seq_len(nrow(Q3_2022_M))
+print(Q3_2022rows <- nrow(Q3_2022_M))
 
+# Load and clean state-level debt data
+Q3_2022_E <- read_excel("Quarterly/02_04_3_trim_2022.xlsx", range = "A4:F2487") %>%
+    clean_names() %>%
+    slice(1:(n() - 4)) %>%
+    rename(EntidadFed = entidad_federativa, `3Q2022` = saldo_total) %>%
+    mutate(
+        EntidadFed = toupper(EntidadFed),
+        EntidadFed = stri_trans_general(EntidadFed, "Latin-ASCII")
+    ) %>%
+    select(EntidadFed, `3Q2022`) %>%
+    drop_na()
+
+# Load municipality data
+municipios_data <- read_excel("Quarterly/MUNICIPIOS_202408.xlsx") %>%
+  mutate(MUNICIPIO = toupper(MUNICIPIO),  # Standardize text
+         MUNICIPIO = stri_trans_general(MUNICIPIO, "Latin-ASCII"))
+
+# Load state names
+estados_data <- read.csv("Quarterly/estados.csv", stringsAsFactors = FALSE) %>%
+  rename(ESTADO = Nombre_Mayuscula) %>%
+  mutate(ESTADO = toupper(ESTADO), 
+         ESTADO = stri_trans_general(ESTADO, "Latin-ASCII"))
+
+merged_data <- inner_join(municipios_data, Q3_2022_E, by = c("MUNICIPIO" = "EntidadFed"))
+
+#Matching Municipio and Estado with the same name
+
+merged_data <- merged_data %>%
+  mutate(Matching_Mun_State = ifelse(MUNICIPIO %in% estados_data$ESTADO, 1, 0))
+filtered_data <- merged_data %>%
+  filter(Matching_Mun_State == 1)
+
+#Make the debt data as numeric
+filtered_data$`3Q2022` <- as.numeric(filtered_data$`3Q2022`)
+
+#Filter for rows with the maximum '3Q2022' value within each 'MUNICIPIO'
+
+Estados_3Q2022 <- filtered_data %>%
+  group_by(MUNICIPIO) %>%
+  filter(`3Q2022` == max(`3Q2022`, na.rm = TRUE)) %>%
+  filter(!duplicated(MUNICIPIO)) %>%
+  select('MUNICIPIO', '3Q2022') %>%
+  ungroup()
+
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+
+############################ Q42022 ############################
 
 Q42022 <- "Quarterly/02_04_4_trim_2022 (1).xlsx"
-Q4_2022 <- read.xlsx(Q42022, startRow = 4) %>%
+Q4_2022_M <- read.xlsx(Q42022, startRow = 4) %>%
   slice(1:(n() - 4)) %>% 
   rename("4Q2022" = "Saldo.total")  %>% 
   rename("EntidadFed" = "Entidad.federativa")  %>% 
   select("EntidadFed", "4Q2022")  # Select only the desired column
-Q4_2022$id <- seq_len(nrow(Q4_2022))
-print(Q4_2022rows <- nrow(Q4_2022))
+Q4_2022_M$id <- seq_len(nrow(Q4_2022_M))
+print(Q4_2022rows <- nrow(Q4_2022_M))
+
+
+# Load and clean state-level debt data
+Q4_2022_E <- read_excel("Quarterly/02_04_4_trim_2022 (1).xlsx", range = "A4:F2487") %>%
+    clean_names() %>%
+    slice(1:(n() - 4)) %>%
+    rename(EntidadFed = entidad_federativa, `4Q2022` = saldo_total) %>%
+    mutate(
+        EntidadFed = toupper(EntidadFed),
+        EntidadFed = stri_trans_general(EntidadFed, "Latin-ASCII")
+    ) %>%
+    select(EntidadFed, `4Q2022`) %>%
+    drop_na()
+
+# Load municipality data
+municipios_data <- read_excel("Quarterly/MUNICIPIOS_202408.xlsx") %>%
+  mutate(MUNICIPIO = toupper(MUNICIPIO),  # Standardize text
+         MUNICIPIO = stri_trans_general(MUNICIPIO, "Latin-ASCII"))
+
+# Load state names
+estados_data <- read.csv("Quarterly/estados.csv", stringsAsFactors = FALSE) %>%
+  rename(ESTADO = Nombre_Mayuscula) %>%
+  mutate(ESTADO = toupper(ESTADO), 
+         ESTADO = stri_trans_general(ESTADO, "Latin-ASCII"))
+
+merged_data <- inner_join(municipios_data, Q4_2022_E, by = c("MUNICIPIO" = "EntidadFed"))
+
+#Matching Municipio and Estado with the same name
+
+merged_data <- merged_data %>%
+  mutate(Matching_Mun_State = ifelse(MUNICIPIO %in% estados_data$ESTADO, 1, 0))
+filtered_data <- merged_data %>%
+  filter(Matching_Mun_State == 1)
+
+#Make the debt data as numeric
+filtered_data$`4Q2022` <- as.numeric(filtered_data$`4Q2022`)
+
+#Filter for rows with the maximum '4Q2022' value within each 'MUNICIPIO'
+
+Estados_4Q2022 <- filtered_data %>%
+  group_by(MUNICIPIO) %>%
+  filter(`4Q2022` == max(`4Q2022`, na.rm = TRUE)) %>%
+  filter(!duplicated(MUNICIPIO)) %>%
+  select('MUNICIPIO', '4Q2022') %>%
+  ungroup()
+
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+
 
 merged_data_2022 <- Q1_2022 %>%
   left_join(Q2_2022, by = "id") %>%
@@ -183,47 +772,281 @@ merged_data_2022  <- merged_data_2022 %>%
 
 
 ```{r get data 2021 , echo=FALSE}
-############################ 2021 ############################    
+####################################################### 2021 ####################################################### 
+library(tidyr)
+library(readxl)
+library(dplyr)
+library(janitor)
+library(stringi)
+library(openxlsx)   
 
-Q1_2021 <- read_excel("Quarterly/02_04_1_trim_2021.xls", range = "A4:F2487") %>%
+
+############################ Q12021 ############################   
+
+Q1_2021_M <- read_excel("Quarterly/02_04_1_trim_2021.xls", range = "A4:F2487") %>%
   slice(1:(n() - 4)) %>% 
   rename("1Q2021" = "Saldo total") %>%
   rename("EntidadFed" = "Entidad federativa")  %>% 
   select("EntidadFed", "1Q2021")
 
-Q1_2021$id <- seq_len(nrow(Q1_2021))
-print(Q1_2021rows <- nrow(Q1_2021))
+Q1_2021_M$id <- seq_len(nrow(Q1_2021_M))
+print(Q1_2021rows <- nrow(Q1_2021_M))
 
 
-Q2_2021 <- read_excel("Quarterly/02_04_2_trim_2021.xls", range = "A4:F2487") %>%
+# Load and clean state-level debt data
+Q1_2021_E <- read_excel("Quarterly/02_04_1_trim_2021.xls", range = "A4:F2487") %>%
+    clean_names() %>%
+    slice(1:(n() - 4)) %>%
+    rename(EntidadFed = entidad_federativa, `1Q2021` = saldo_total) %>%
+    mutate(
+        EntidadFed = toupper(EntidadFed),
+        EntidadFed = stri_trans_general(EntidadFed, "Latin-ASCII")
+    ) %>%
+    select(EntidadFed, `1Q2021`) %>%
+    drop_na()
+
+# Load municipality data
+municipios_data <- read_excel("Quarterly/MUNICIPIOS_202408.xlsx") %>%
+  mutate(MUNICIPIO = toupper(MUNICIPIO),  # Standardize text
+         MUNICIPIO = stri_trans_general(MUNICIPIO, "Latin-ASCII"))
+
+# Load state names
+estados_data <- read.csv("Quarterly/estados.csv", stringsAsFactors = FALSE) %>%
+  rename(ESTADO = Nombre_Mayuscula) %>%
+  mutate(ESTADO = toupper(ESTADO), 
+         ESTADO = stri_trans_general(ESTADO, "Latin-ASCII"))
+
+merged_data <- inner_join(municipios_data, Q1_2021_E, by = c("MUNICIPIO" = "EntidadFed"))
+
+#Matching Municipio and Estado with the same name
+
+merged_data <- merged_data %>%
+  mutate(Matching_Mun_State = ifelse(MUNICIPIO %in% estados_data$ESTADO, 1, 0))
+filtered_data <- merged_data %>%
+  filter(Matching_Mun_State == 1)
+
+#Make the debt data as numeric
+filtered_data$`1Q2021` <- as.numeric(filtered_data$`1Q2021`)
+
+#Filter for rows with the maximum '1Q2021' value within each 'MUNICIPIO'
+
+Estados_1Q2021 <- filtered_data %>%
+  group_by(MUNICIPIO) %>%
+  filter(`1Q2021` == max(`1Q2021`, na.rm = TRUE)) %>%
+  filter(!duplicated(MUNICIPIO)) %>%
+  select('MUNICIPIO', '1Q2021') %>%
+  ungroup()
+
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+
+############################ Q22021 ############################   
+
+Q2_2021_M <- read_excel("Quarterly/02_04_2_trim_2021.xls", range = "A4:F2487") %>%
   slice(1:(n() - 4)) %>% 
   rename("2Q2021" = "Saldo total") %>%
   rename("EntidadFed" = "Entidad federativa")  %>% 
   select("EntidadFed", "2Q2021")
 
-Q2_2021$id <- seq_len(nrow(Q2_2021))
-print(Q2_2021rows <- nrow(Q2_2021))
+Q2_2021_M$id <- seq_len(nrow(Q2_2021_M))
+print(Q2_2021rows <- nrow(Q2_2021_M))
 
+
+# Load and clean state-level debt data
+Q2_2021_E <- read_excel("Quarterly/02_04_2_trim_2021.xls", range = "A4:F2487") %>%
+    clean_names() %>%
+    slice(1:(n() - 4)) %>%
+    rename(EntidadFed = entidad_federativa, `2Q2021` = saldo_total) %>%
+    mutate(
+        EntidadFed = toupper(EntidadFed),
+        EntidadFed = stri_trans_general(EntidadFed, "Latin-ASCII")
+    ) %>%
+    select(EntidadFed, `2Q2021`) %>%
+    drop_na()
+
+# Load municipality data
+municipios_data <- read_excel("Quarterly/MUNICIPIOS_202408.xlsx") %>%
+  mutate(MUNICIPIO = toupper(MUNICIPIO),  # Standardize text
+         MUNICIPIO = stri_trans_general(MUNICIPIO, "Latin-ASCII"))
+
+# Load state names
+estados_data <- read.csv("Quarterly/estados.csv", stringsAsFactors = FALSE) %>%
+  rename(ESTADO = Nombre_Mayuscula) %>%
+  mutate(ESTADO = toupper(ESTADO), 
+         ESTADO = stri_trans_general(ESTADO, "Latin-ASCII"))
+
+merged_data <- inner_join(municipios_data, Q2_2021_E, by = c("MUNICIPIO" = "EntidadFed"))
+
+#Matching Municipio and Estado with the same name
+
+merged_data <- merged_data %>%
+  mutate(Matching_Mun_State = ifelse(MUNICIPIO %in% estados_data$ESTADO, 1, 0))
+filtered_data <- merged_data %>%
+  filter(Matching_Mun_State == 1)
+
+#Make the debt data as numeric
+filtered_data$`2Q2021` <- as.numeric(filtered_data$`2Q2021`)
+
+#Filter for rows with the maximum '1Q2021' value within each 'MUNICIPIO'
+
+Estados_2Q2021 <- filtered_data %>%
+  group_by(MUNICIPIO) %>%
+  filter(`2Q2021` == max(`2Q2021`, na.rm = TRUE)) %>%
+  filter(!duplicated(MUNICIPIO)) %>%
+  select('MUNICIPIO', '2Q2021') %>%
+  ungroup()
+
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+
+############################ Q32021 ############################   
 
 Q32021 <- "Quarterly/02_04_3_trim_2021.xlsx"
-Q3_2021 <- read.xlsx(Q32021, startRow = 4) %>%
+Q3_2021_M <- read.xlsx(Q32021, startRow = 4) %>%
   slice(1:(n() - 4)) %>% 
   rename("3Q2021" = "Saldo.total")  %>% 
   rename("EntidadFed" = "Entidad.federativa")  %>% 
   select("EntidadFed", "3Q2021")  # Select only the desired column
 
-Q3_2021$id <- seq_len(nrow(Q3_2021))
-print(Q3_2021rows <- nrow(Q3_2021))
+Q3_2021_M$id <- seq_len(nrow(Q3_2021_M))
+print(Q3_2021rows <- nrow(Q3_2021_M))
+
+
+# Load and clean state-level debt data
+Q3_2021_E <- read_excel("Quarterly/02_04_3_trim_2021.xlsx", range = "A4:F2487") %>%
+    clean_names() %>%
+    slice(1:(n() - 4)) %>%
+    rename(EntidadFed = entidad_federativa, `3Q2021` = saldo_total) %>%
+    mutate(
+        EntidadFed = toupper(EntidadFed),
+        EntidadFed = stri_trans_general(EntidadFed, "Latin-ASCII")
+    ) %>%
+    select(EntidadFed, `3Q2021`) %>%
+    drop_na()
+
+# Load municipality data
+municipios_data <- read_excel("Quarterly/MUNICIPIOS_202408.xlsx") %>%
+  mutate(MUNICIPIO = toupper(MUNICIPIO),  # Standardize text
+         MUNICIPIO = stri_trans_general(MUNICIPIO, "Latin-ASCII"))
+
+# Load state names
+estados_data <- read.csv("Quarterly/estados.csv", stringsAsFactors = FALSE) %>%
+  rename(ESTADO = Nombre_Mayuscula) %>%
+  mutate(ESTADO = toupper(ESTADO), 
+         ESTADO = stri_trans_general(ESTADO, "Latin-ASCII"))
+
+merged_data <- inner_join(municipios_data, Q3_2021_E, by = c("MUNICIPIO" = "EntidadFed"))
+
+#Matching Municipio and Estado with the same name
+
+merged_data <- merged_data %>%
+  mutate(Matching_Mun_State = ifelse(MUNICIPIO %in% estados_data$ESTADO, 1, 0))
+filtered_data <- merged_data %>%
+  filter(Matching_Mun_State == 1)
+
+#Make the debt data as numeric
+filtered_data$`3Q2021` <- as.numeric(filtered_data$`3Q2021`)
+
+#Filter for rows with the maximum '1Q2021' value within each 'MUNICIPIO'
+
+Estados_3Q2021 <- filtered_data %>%
+  group_by(MUNICIPIO) %>%
+  filter(`3Q2021` == max(`3Q2021`, na.rm = TRUE)) %>%
+  filter(!duplicated(MUNICIPIO)) %>%
+  select('MUNICIPIO', '3Q2021') %>%
+  ungroup()
+
+## Checar: Aguascalientes !!!!!!!!!!! ##
+## Checar: Aguascalientes !!!!!!!!!!! ##
+## Checar: Aguascalientes !!!!!!!!!!! ##
+## Checar: Aguascalientes !!!!!!!!!!! ##
+
+
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+
+############################ Q42021 ############################   
 
 Q42021 <- "Quarterly/02_04_4_trim_2021.xlsx"
-Q4_2021 <- read.xlsx(Q42021, startRow = 4) %>%
+Q4_2021_M <- read.xlsx(Q42021, startRow = 4) %>%
   slice(1:(n() - 4)) %>% 
   rename("4Q2021" = "Saldo.total")  %>% 
   rename("EntidadFed" = "Entidad.federativa")  %>% 
   select("EntidadFed", "4Q2021")  # Select only the desired column
 
-Q4_2021$id <- seq_len(nrow(Q4_2021))
-print(Q4_2021rows <- nrow(Q4_2021))
+Q4_2021_M$id <- seq_len(nrow(Q4_2021_M))
+print(Q4_2021rows <- nrow(Q4_2021_M))
+
+# Load and clean state-level debt data
+Q4_2021_E <- read_excel("Quarterly/02_04_4_trim_2021.xlsx", range = "A4:F2487") %>%
+    clean_names() %>%
+    slice(1:(n() - 4)) %>%
+    rename(EntidadFed = entidad_federativa, `4Q2021` = saldo_total) %>%
+    mutate(
+        EntidadFed = toupper(EntidadFed),
+        EntidadFed = stri_trans_general(EntidadFed, "Latin-ASCII")
+    ) %>%
+    select(EntidadFed, `4Q2021`) %>%
+    drop_na()
+
+# Load municipality data
+municipios_data <- read_excel("Quarterly/MUNICIPIOS_202408.xlsx") %>%
+  mutate(MUNICIPIO = toupper(MUNICIPIO),  # Standardize text
+         MUNICIPIO = stri_trans_general(MUNICIPIO, "Latin-ASCII"))
+
+# Load state names
+estados_data <- read.csv("Quarterly/estados.csv", stringsAsFactors = FALSE) %>%
+  rename(ESTADO = Nombre_Mayuscula) %>%
+  mutate(ESTADO = toupper(ESTADO), 
+         ESTADO = stri_trans_general(ESTADO, "Latin-ASCII"))
+
+merged_data <- inner_join(municipios_data, Q4_2021_E, by = c("MUNICIPIO" = "EntidadFed"))
+
+#Matching Municipio and Estado with the same name
+
+merged_data <- merged_data %>%
+  mutate(Matching_Mun_State = ifelse(MUNICIPIO %in% estados_data$ESTADO, 1, 0))
+filtered_data <- merged_data %>%
+  filter(Matching_Mun_State == 1)
+
+#Make the debt data as numeric
+filtered_data$`4Q2021` <- as.numeric(filtered_data$`4Q2021`)
+
+#Filter for rows with the maximum '4Q2021' value within each 'MUNICIPIO'
+
+Estados_4Q2021 <- filtered_data %>%
+  group_by(MUNICIPIO) %>%
+  filter(`4Q2021` == max(`4Q2021`, na.rm = TRUE)) %>%
+  filter(!duplicated(MUNICIPIO)) %>%
+  select('MUNICIPIO', '4Q2021') %>%
+  ungroup()
+
+## Checar: Durango !!!!!!!!!!! ##
+## Checar: Durango !!!!!!!!!!! ##
+## Checar: Durango !!!!!!!!!!! ##
+## Checar: Durango !!!!!!!!!!! ##
+
+## Checar: San Luis Potosi !!!!!!!!!!! ##
+## Checar: San Luis Potosi !!!!!!!!!!! ##
+## Checar: San Luis Potosi !!!!!!!!!!! ##
+## Checar: San Luis Potosi !!!!!!!!!!! ##
+
+## Checar: Zacatecas !!!!!!!!!!! ##
+## Checar: Zacatecas !!!!!!!!!!! ##
+## Checar: Zacatecas !!!!!!!!!!! ##
+## Checar: Zacatecas !!!!!!!!!!! ##
+
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+
 
 merged_data_2021 <- Q1_2021 %>%
   left_join(Q2_2021, by = "id") %>%
@@ -237,50 +1060,264 @@ merged_data_2021  <- merged_data_2021 %>%
 
 ```{r get data 2020 , echo=FALSE}
 
-############################ 2020 ############################    
+####################################################### 2020 ####################################################### 
+library(tidyr)
+library(readxl)
+library(dplyr)
+library(janitor)
+library(stringi)
 
-Q1_2020 <- read_excel("Quarterly/02_04_1_trim_2020.xls", range = "A4:F2487") %>%
+############################ Q12020 ############################   
+
+Q1_2020_M <- read_excel("Quarterly/02_04_1_trim_2020.xls", range = "A4:F2487") %>%
   slice(1:(n() - 4)) %>% 
   rename("1Q2020" = "Saldo total") %>%
   rename("EntidadFed" = "Entidad federativa")  %>% 
   select("EntidadFed", "1Q2020")
 
-Q1_2020$id <- seq_len(nrow(Q1_2020))
-print(Q1_2020rows <- nrow(Q1_2020))
+Q1_2020_M$id <- seq_len(nrow(Q1_2020_M))
+print(Q1_2020rows <- nrow(Q1_2020_M))
+
+# Load and clean state-level debt data
+Q1_2020_E <- read_excel("Quarterly/02_04_1_trim_2020.xls", range = "A4:F2487") %>%
+    clean_names() %>%
+    slice(1:(n() - 4)) %>%
+    rename(EntidadFed = entidad_federativa, `1Q2020` = saldo_total) %>%
+    mutate(
+        EntidadFed = toupper(EntidadFed),
+        EntidadFed = stri_trans_general(EntidadFed, "Latin-ASCII")
+    ) %>%
+    select(EntidadFed, `1Q2020`) %>%
+    drop_na()
+
+# Load municipality data
+municipios_data <- read_excel("Quarterly/MUNICIPIOS_202408.xlsx") %>%
+  mutate(MUNICIPIO = toupper(MUNICIPIO),  # Standardize text
+         MUNICIPIO = stri_trans_general(MUNICIPIO, "Latin-ASCII"))
+
+# Load state names
+estados_data <- read.csv("Quarterly/estados.csv", stringsAsFactors = FALSE) %>%
+  rename(ESTADO = Nombre_Mayuscula) %>%
+  mutate(ESTADO = toupper(ESTADO), 
+         ESTADO = stri_trans_general(ESTADO, "Latin-ASCII"))
+
+merged_data <- inner_join(municipios_data, Q1_2020_E, by = c("MUNICIPIO" = "EntidadFed"))
+
+#Matching Municipio and Estado with the same name
+
+merged_data <- merged_data %>%
+  mutate(Matching_Mun_State = ifelse(MUNICIPIO %in% estados_data$ESTADO, 1, 0))
+filtered_data <- merged_data %>%
+  filter(Matching_Mun_State == 1)
+
+#Make the debt data as numeric
+filtered_data$`1Q2020` <- as.numeric(filtered_data$`1Q2020`)
+
+#Filter for rows with the maximum '1Q2012' value within each 'MUNICIPIO'
+
+Estados_1Q2020 <- filtered_data %>%
+  group_by(MUNICIPIO) %>%
+  filter(`1Q2020` == max(`1Q2020`, na.rm = TRUE)) %>%
+  filter(!duplicated(MUNICIPIO)) %>%
+  select('MUNICIPIO', '1Q2020') %>%
+  ungroup()
+
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
 
 
+############################ Q22020 ############################   
 
-Q2_2020 <- read_excel("Quarterly/02_04_2_trim_2020.xls", range = "A4:F2487") %>%
+Q2_2020_M <- read_excel("Quarterly/02_04_2_trim_2020.xls", range = "A4:F2487") %>%
   slice(1:(n() - 4)) %>% 
   rename("2Q2020" = "Saldo total") %>%
   rename("EntidadFed" = "Entidad federativa")  %>% 
   select("EntidadFed", "2Q2020")
 
-Q2_2020$id <- seq_len(nrow(Q2_2020))
-print(Q2_2020rows <- nrow(Q2_2020))
+Q2_2020_M$id <- seq_len(nrow(Q2_2020_M))
+print(Q2_2020rows <- nrow(Q2_2020_M))
+
+# Load and clean state-level debt data
+Q2_2020_E <- read_excel("Quarterly/02_04_2_trim_2020.xls", range = "A4:F2487") %>%
+    clean_names() %>%
+    slice(1:(n() - 4)) %>%
+    rename(EntidadFed = entidad_federativa, `2Q2020` = saldo_total) %>%
+    mutate(
+        EntidadFed = toupper(EntidadFed),
+        EntidadFed = stri_trans_general(EntidadFed, "Latin-ASCII")
+    ) %>%
+    select(EntidadFed, `2Q2020`) %>%
+    drop_na()
+
+# Load municipality data
+municipios_data <- read_excel("Quarterly/MUNICIPIOS_202408.xlsx") %>%
+  mutate(MUNICIPIO = toupper(MUNICIPIO),  # Standardize text
+         MUNICIPIO = stri_trans_general(MUNICIPIO, "Latin-ASCII"))
+
+# Load state names
+estados_data <- read.csv("Quarterly/estados.csv", stringsAsFactors = FALSE) %>%
+  rename(ESTADO = Nombre_Mayuscula) %>%
+  mutate(ESTADO = toupper(ESTADO), 
+         ESTADO = stri_trans_general(ESTADO, "Latin-ASCII"))
 
 
+merged_data <- inner_join(municipios_data, Q2_2020_E, by = c("MUNICIPIO" = "EntidadFed"))
 
-Q3_2020 <- read_excel("Quarterly/02_04_3_trim_2020.xls", range = "A4:F2487") %>%
+#Matching Municipio and Estado with the same name
+
+merged_data <- merged_data %>%
+  mutate(Matching_Mun_State = ifelse(MUNICIPIO %in% estados_data$ESTADO, 1, 0))
+filtered_data <- merged_data %>%
+  filter(Matching_Mun_State == 1)
+
+#Make the debt data as numeric
+filtered_data$`2Q2020` <- as.numeric(filtered_data$`2Q2020`)
+
+#Filter for rows with the maximum '2Q2012' value within each 'MUNICIPIO'
+
+Estados_2Q2020 <- filtered_data %>%
+  group_by(MUNICIPIO) %>%
+  filter(`2Q2020` == max(`2Q2020`, na.rm = TRUE)) %>%
+  filter(!duplicated(MUNICIPIO)) %>%
+  select('MUNICIPIO', '2Q2020') %>%
+  ungroup()
+
+
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+
+
+############################ Q32020 ############################   
+
+Q3_2020_M <- read_excel("Quarterly/02_04_3_trim_2020.xls", range = "A4:F2487") %>%
   slice(1:(n() - 4)) %>% 
   rename("3Q2020" = "Saldo total") %>%
   rename("EntidadFed" = "Entidad federativa")  %>% 
   select("EntidadFed", "3Q2020")
 
-Q3_2020$id <- seq_len(nrow(Q3_2020))
-print(Q3_2020rows <- nrow(Q3_2020))
+Q3_2020_M$id <- seq_len(nrow(Q3_2020_M))
+print(Q3_2020rows <- nrow(Q3_2020_M))
+
+# Load and clean state-level debt data
+Q3_2020_E <- read_excel("Quarterly/02_04_3_trim_2020.xls", range = "A4:F2487") %>%
+    clean_names() %>%
+    slice(1:(n() - 4)) %>%
+    rename(EntidadFed = entidad_federativa, `3Q2020` = saldo_total) %>%
+    mutate(
+        EntidadFed = toupper(EntidadFed),
+        EntidadFed = stri_trans_general(EntidadFed, "Latin-ASCII")
+    ) %>%
+    select(EntidadFed, `3Q2020`) %>%
+    drop_na()
+
+# Load municipality data
+municipios_data <- read_excel("Quarterly/MUNICIPIOS_202408.xlsx") %>%
+  mutate(MUNICIPIO = toupper(MUNICIPIO),  # Standardize text
+         MUNICIPIO = stri_trans_general(MUNICIPIO, "Latin-ASCII"))
+
+# Load state names
+estados_data <- read.csv("Quarterly/estados.csv", stringsAsFactors = FALSE) %>%
+  rename(ESTADO = Nombre_Mayuscula) %>%
+  mutate(ESTADO = toupper(ESTADO), 
+         ESTADO = stri_trans_general(ESTADO, "Latin-ASCII"))
 
 
+merged_data <- inner_join(municipios_data, Q3_2020_E, by = c("MUNICIPIO" = "EntidadFed"))
 
-Q4_2020 <- read_excel("Quarterly/02_04_4_trim_2020.xls", range = "A4:F2487") %>%
+#Matching Municipio and Estado with the same name
+
+merged_data <- merged_data %>%
+  mutate(Matching_Mun_State = ifelse(MUNICIPIO %in% estados_data$ESTADO, 1, 0))
+filtered_data <- merged_data %>%
+  filter(Matching_Mun_State == 1)
+
+#Make the debt data as numeric
+filtered_data$`3Q2020` <- as.numeric(filtered_data$`3Q2020`)
+
+#Filter for rows with the maximum '3Q2012' value within each 'MUNICIPIO'
+
+Estados_3Q2020 <- filtered_data %>%
+  group_by(MUNICIPIO) %>%
+  filter(`3Q2020` == max(`3Q2020`, na.rm = TRUE)) %>%
+  filter(!duplicated(MUNICIPIO)) %>%
+  select('MUNICIPIO', '3Q2020') %>%
+  ungroup()
+
+
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+
+
+############################ Q42020 ############################   
+
+Q4_2020_M <- read_excel("Quarterly/02_04_4_trim_2020.xls", range = "A4:F2487") %>%
   slice(1:(n() - 4)) %>% 
   rename("4Q2020" = "Saldo total") %>%
   rename("EntidadFed" = "Entidad federativa")  %>% 
   select("EntidadFed", "4Q2020")
-print(Q3_2020rows <- nrow(Q4_2020))
+print(Q4_2020rows <- nrow(Q4_2020_M))
 
-Q4_2020$id <- seq_len(nrow(Q4_2020))
-print(Q4_2020rows <- nrow(Q4_2020))
+Q4_2020_M$id <- seq_len(nrow(Q4_2020_M))
+print(Q4_2020rows <- nrow(Q4_2020_M))
+
+
+# Load and clean state-level debt data
+Q4_2020_E <- read_excel("Quarterly/02_04_4_trim_2020.xls", range = "A4:F2487") %>%
+    clean_names() %>%
+    slice(1:(n() - 4)) %>%
+    rename(EntidadFed = entidad_federativa, `4Q2020` = saldo_total) %>%
+    mutate(
+        EntidadFed = toupper(EntidadFed),
+        EntidadFed = stri_trans_general(EntidadFed, "Latin-ASCII")
+    ) %>%
+    select(EntidadFed, `4Q2020`) %>%
+    drop_na()
+
+# Load municipality data
+municipios_data <- read_excel("Quarterly/MUNICIPIOS_202408.xlsx") %>%
+  mutate(MUNICIPIO = toupper(MUNICIPIO),  # Standardize text
+         MUNICIPIO = stri_trans_general(MUNICIPIO, "Latin-ASCII"))
+
+# Load state names
+estados_data <- read.csv("Quarterly/estados.csv", stringsAsFactors = FALSE) %>%
+  rename(ESTADO = Nombre_Mayuscula) %>%
+  mutate(ESTADO = toupper(ESTADO), 
+         ESTADO = stri_trans_general(ESTADO, "Latin-ASCII"))
+
+
+merged_data <- inner_join(municipios_data, Q4_2020_E, by = c("MUNICIPIO" = "EntidadFed"))
+
+#Matching Municipio and Estado with the same name
+
+merged_data <- merged_data %>%
+  mutate(Matching_Mun_State = ifelse(MUNICIPIO %in% estados_data$ESTADO, 1, 0))
+filtered_data <- merged_data %>%
+  filter(Matching_Mun_State == 1)
+
+#Make the debt data as numeric
+filtered_data$`4Q2020` <- as.numeric(filtered_data$`4Q2020`)
+
+#Filter for rows with the maximum '4Q2012' value within each 'MUNICIPIO'
+
+Estados_4Q2020 <- filtered_data %>%
+  group_by(MUNICIPIO) %>%
+  filter(`4Q2020` == max(`4Q2020`, na.rm = TRUE)) %>%
+  filter(!duplicated(MUNICIPIO)) %>%
+  select('MUNICIPIO', '4Q2020') %>%
+  ungroup()
+
+
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+
 
 merged_data_2020 <- Q1_2020 %>%
   left_join(Q2_2020, by = "id") %>%
@@ -293,27 +1330,203 @@ merged_data_2020  <- merged_data_2020 %>%
 
 
 ```{r get data 2019 , echo=FALSE}
-############################ 2019 ############################    
 
-Q22019 <- "Quarterly/02_04_2_trim_2019.xlsx"
-Q2_2019 <- read.xlsx(Q22019, startRow = 4) %>%
+####################################################### 2019 ####################################################### 
+
+library(tidyr)
+
+############################ Q12019 ############################   
+
+Q12019 <- read_excel("Quarterly/02_04_1_trim_2019.xlsx", skip = 1)
+colnames(Q12019)[1] <- "Entidad.federativa"
+colnames(Q12019)[6] <- "Saldo.total"
+
+Q1_2019_M <- Q12019 %>%
+  slice(1:(n() - 4)) %>%                # Remove the last 4 rows
+  rename(`1Q2019` = `Saldo.total`) %>%  # Rename "Saldo.total" to "1Q2018"
+  rename(EntidadFed = `Entidad.federativa`) %>% # Rename "Entidad.federativa" to "EntidadFed"
+  select(EntidadFed, `1Q2019`) %>%      # Select only the desired columns
+  drop_na()                             # Remove rows where any column has NA
+Q1_2019_M$id <- seq_len(nrow(Q1_2019_M))
+print(Q1_2018rows <- nrow(Q1_2019_M))
+
+# Estados
+Q1_2019_E <- Q12019 %>%
+  slice(1:(n() - 4)) %>%                # Remove the last 4 rows
+  rename(`1Q2019` = `Saldo.total`,      # Rename "Saldo.total" to "1Q2012"
+         EntidadFed = `Entidad.federativa`) %>%  # Rename "Entidad.federativa" to "EntidadFed"
+  mutate(EntidadFed = toupper(EntidadFed)) %>%   # Convert EntidadFed to uppercase
+  mutate(EntidadFed = stri_trans_general(EntidadFed, "Latin-ASCII"))  %>%   # 
+  select(EntidadFed, `1Q2019`) %>%      # Select only the desired columns
+  drop_na() %>%
+  group_by(EntidadFed) %>%
+  mutate(ESTADO = if_else(`1Q2019` == max(`1Q2019`), 1, 0)) %>%
+  ungroup()
+Q1_2019_E$id <- seq_len(nrow(Q1_2019_E))
+print(Q1_2019_Erows <- nrow(Q1_2019_E))
+
+
+#Data for Municipios and Estados
+municipios_data <- read_excel("Quarterly/MUNICIPIOS_202408.xlsx")
+municipios_data <- municipios_data %>%
+  mutate(MUNICIPIO = stri_trans_general(MUNICIPIO, "Latin-ASCII"))
+estados_data <- read.csv("Quarterly/estados.csv", stringsAsFactors = FALSE)
+estados_data <- estados_data %>%
+  select('Nombre_Mayuscula') %>%
+  rename(`ESTADO` = `Nombre_Mayuscula`)
+
+merged_data <- inner_join(municipios_data, Q1_2019_E, by = c("MUNICIPIO" = "EntidadFed"))
+
+#Matching Municipio and Estado with the same name
+
+merged_data <- merged_data %>%
+  mutate(Matching_Mun_State = ifelse(MUNICIPIO %in% estados_data$ESTADO, 1, 0))
+filtered_data <- merged_data %>%
+  filter(Matching_Mun_State == 1)
+
+#Make the debt data as numeric
+filtered_data$`1Q2019` <- as.numeric(filtered_data$`1Q2019`)
+
+#Filter for rows with the maximum '1Q2012' value within each 'MUNICIPIO'
+
+Estados_1Q2019 <- filtered_data %>%
+  group_by(MUNICIPIO) %>%
+  filter(`1Q2019` == max(`1Q2019`, na.rm = TRUE)) %>%
+  filter(!duplicated(MUNICIPIO)) %>%
+  select('MUNICIPIO', '1Q2019') %>%
+  ungroup()
+
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+
+
+############################ Q22019 ############################    
+
+Q2_2019_M <- read_excel("Quarterly/02_04_2_trim_2019.xlsx", range = "A4:F2487") %>%
   slice(1:(n() - 4)) %>% 
-  rename("2Q2019" = "Saldo.total")  %>% 
-  rename("EntidadFed" = "Entidad.federativa")  %>% 
-  select("EntidadFed", "2Q2019")  # Select only the desired columns
+  rename("2Q2019" = "Saldo total") %>%
+  rename("EntidadFed" = "Entidad federativa")  %>% 
+  select("EntidadFed", "2Q2019")
 
-Q2_2019$id <- seq_len(nrow(Q2_2019))
-print(Q2_2019rows <- nrow(Q2_2019))
+Q2_2019_M$id <- seq_len(nrow(Q2_2019_M))
+print(Q2_2019rows <- nrow(Q2_2019_M))
+
+# Load and clean state-level debt data
+Q2_2019_E <- read_excel("Quarterly/02_04_2_trim_2019.xlsx", range = "A4:F2487") %>%
+    clean_names() %>%
+    slice(1:(n() - 4)) %>%
+    rename(EntidadFed = entidad_federativa, `2Q2019` = saldo_total) %>%
+    mutate(
+        EntidadFed = toupper(EntidadFed),
+        EntidadFed = stri_trans_general(EntidadFed, "Latin-ASCII")
+    ) %>%
+    select(EntidadFed, `2Q2019`) %>%
+    drop_na()
+
+# Load municipality data
+municipios_data <- read_excel("Quarterly/MUNICIPIOS_202408.xlsx") %>%
+  mutate(MUNICIPIO = toupper(MUNICIPIO),  # Standardize text
+         MUNICIPIO = stri_trans_general(MUNICIPIO, "Latin-ASCII"))
+
+# Load state names
+estados_data <- read.csv("Quarterly/estados.csv", stringsAsFactors = FALSE) %>%
+  rename(ESTADO = Nombre_Mayuscula) %>%
+  mutate(ESTADO = toupper(ESTADO), 
+         ESTADO = stri_trans_general(ESTADO, "Latin-ASCII"))
 
 
+merged_data <- inner_join(municipios_data, Q2_2019_E, by = c("MUNICIPIO" = "EntidadFed"))
 
-Q3_2019 <- read_excel("Quarterly/02_04_3_trim_2019.xls", range = "A4:F2487") %>%
+#Matching Municipio and Estado with the same name
+
+merged_data <- merged_data %>%
+  mutate(Matching_Mun_State = ifelse(MUNICIPIO %in% estados_data$ESTADO, 1, 0))
+filtered_data <- merged_data %>%
+  filter(Matching_Mun_State == 1)
+
+#Make the debt data as numeric
+filtered_data$`2Q2019` <- as.numeric(filtered_data$`2Q2019`)
+
+#Filter for rows with the maximum '2Q2019' value within each 'MUNICIPIO'
+
+Estados_2Q2019 <- filtered_data %>%
+  group_by(MUNICIPIO) %>%
+  filter(`2Q2019` == max(`2Q2019`, na.rm = TRUE)) %>%
+  filter(!duplicated(MUNICIPIO)) %>%
+  select('MUNICIPIO', '2Q2019') %>%
+  ungroup()
+
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+
+
+############################ Q32019 ############################    
+
+Q3_2019_M <- read_excel("Quarterly/02_04_3_trim_2019.xls", range = "A4:F2487") %>%
   slice(1:(n() - 4)) %>% 
   rename("3Q2019" = "Saldo total") %>%
   rename("EntidadFed" = "Entidad federativa")  %>% 
   select("EntidadFed", "3Q2019")
-Q3_2019$id <- seq_len(nrow(Q3_2019))
-print(Q3_2019rows <- nrow(Q3_2019))
+
+Q3_2019_M$id <- seq_len(nrow(Q3_2019_M))
+print(Q3_2019rows <- nrow(Q3_2019_M))
+
+# Load and clean state-level debt data
+Q3_2019_E <- read_excel("Quarterly/02_04_3_trim_2019.xls", range = "A4:F2487") %>%
+    clean_names() %>%
+    slice(1:(n() - 4)) %>%
+    rename(EntidadFed = entidad_federativa, `3Q2019` = saldo_total) %>%
+    mutate(
+        EntidadFed = toupper(EntidadFed),
+        EntidadFed = stri_trans_general(EntidadFed, "Latin-ASCII")
+    ) %>%
+    select(EntidadFed, `3Q2019`) %>%
+    drop_na()
+
+# Load municipality data
+municipios_data <- read_excel("Quarterly/MUNICIPIOS_202408.xlsx") %>%
+  mutate(MUNICIPIO = toupper(MUNICIPIO),  # Standardize text
+         MUNICIPIO = stri_trans_general(MUNICIPIO, "Latin-ASCII"))
+
+# Load state names
+estados_data <- read.csv("Quarterly/estados.csv", stringsAsFactors = FALSE) %>%
+  rename(ESTADO = Nombre_Mayuscula) %>%
+  mutate(ESTADO = toupper(ESTADO), 
+         ESTADO = stri_trans_general(ESTADO, "Latin-ASCII"))
+
+
+merged_data <- inner_join(municipios_data, Q3_2019_E, by = c("MUNICIPIO" = "EntidadFed"))
+
+#Matching Municipio and Estado with the same name
+
+merged_data <- merged_data %>%
+  mutate(Matching_Mun_State = ifelse(MUNICIPIO %in% estados_data$ESTADO, 1, 0))
+filtered_data <- merged_data %>%
+  filter(Matching_Mun_State == 1)
+
+#Make the debt data as numeric
+filtered_data$`3Q2019` <- as.numeric(filtered_data$`3Q2019`)
+
+#Filter for rows with the maximum 32Q2019' value within each 'MUNICIPIO'
+
+Estados_3Q2019 <- filtered_data %>%
+  group_by(MUNICIPIO) %>%
+  filter(`3Q2019` == max(`3Q2019`, na.rm = TRUE)) %>%
+  filter(!duplicated(MUNICIPIO)) %>%
+  select('MUNICIPIO', '3Q2019') %>%
+  ungroup()
+
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+
+
+############################ Q42019 ############################    
 
 
 Q4_2019 <- read_excel("Quarterly/02_04_4_trim_2019.xls", range = "A4:F2487") %>%
@@ -323,6 +1536,7 @@ Q4_2019 <- read_excel("Quarterly/02_04_4_trim_2019.xls", range = "A4:F2487") %>%
   select("EntidadFed", "4Q2019")
 Q4_2019$id <- seq_len(nrow(Q4_2019))
 print(Q4_20219rows <- nrow(Q4_2019))
+
 
 
 
@@ -345,69 +1559,277 @@ merged_data_2019_2020   <- merged_data_2019_2020 %>%
 
 
 ```{r get data 2018 , echo=FALSE}
-############################ 2018 ############################    
+
+####################################################### 2018 ####################################################### 
 
 library(tidyr)
 
+############################ Q12018 ############################   
+
+
 Q12018 <- read_excel("Quarterly/02_04_1_trim_2018.xlsx", skip = 1)
-
 colnames(Q12018)[1] <- "Entidad.federativa"
-colnames(Q12018)[2] <- "Saldo.total"
-
-Q1_2018 <- Q12018 %>%
+colnames(Q12018)[6] <- "Saldo.total"
+Q1_2018_M <- Q12018 %>%
   slice(1:(n() - 4)) %>%                # Remove the last 4 rows
   rename(`1Q2018` = `Saldo.total`) %>%  # Rename "Saldo.total" to "1Q2018"
   rename(EntidadFed = `Entidad.federativa`) %>% # Rename "Entidad.federativa" to "EntidadFed"
   select(EntidadFed, `1Q2018`) %>%      # Select only the desired columns
   drop_na()                             # Remove rows where any column has NA
-                          # Remove rows where any column has NA
-Q1_2018$id <- seq_len(nrow(Q1_2018))
+Q1_2018_M$id <- seq_len(nrow(Q1_2018_M))
+print(Q1_2018rows <- nrow(Q1_2018_M))
+
+# Estados
+Q1_2018_E <- Q12018 %>%
+  slice(1:(n() - 4)) %>%                # Remove the last 4 rows
+  rename(`1Q2018` = `Saldo.total`,      # Rename "Saldo.total" to "1Q2012"
+         EntidadFed = `Entidad.federativa`) %>%  # Rename "Entidad.federativa" to "EntidadFed"
+  mutate(EntidadFed = toupper(EntidadFed)) %>%   # Convert EntidadFed to uppercase
+  mutate(EntidadFed = stri_trans_general(EntidadFed, "Latin-ASCII"))  %>%   # 
+  select(EntidadFed, `1Q2018`) %>%      # Select only the desired columns
+  drop_na() %>%
+  group_by(EntidadFed) %>%
+  mutate(ESTADO = if_else(`1Q2018` == max(`1Q2018`), 1, 0)) %>%
+  ungroup()
+Q1_2018_E$id <- seq_len(nrow(Q1_2018_E))
+print(Q1_2018_Erows <- nrow(Q1_2018_E))
+
+
+#Data for Municipios and Estados
+municipios_data <- read_excel("Quarterly/MUNICIPIOS_202408.xlsx")
+municipios_data <- municipios_data %>%
+  mutate(MUNICIPIO = stri_trans_general(MUNICIPIO, "Latin-ASCII"))
+estados_data <- read.csv("Quarterly/estados.csv", stringsAsFactors = FALSE)
+estados_data <- estados_data %>%
+  select('Nombre_Mayuscula') %>%
+  rename(`ESTADO` = `Nombre_Mayuscula`)
+
+merged_data <- inner_join(municipios_data, Q1_2018_E, by = c("MUNICIPIO" = "EntidadFed"))
+
+#Matching Municipio and Estado with the same name
+
+merged_data <- merged_data %>%
+  mutate(Matching_Mun_State = ifelse(MUNICIPIO %in% estados_data$ESTADO, 1, 0))
+filtered_data <- merged_data %>%
+  filter(Matching_Mun_State == 1)
+
+#Make the debt data as numeric
+filtered_data$`1Q2018` <- as.numeric(filtered_data$`1Q2018`)
+
+#Filter for rows with the maximum '1Q2012' value within each 'MUNICIPIO'
+
+Estados_1Q2018 <- filtered_data %>%
+  group_by(MUNICIPIO) %>%
+  filter(`1Q2018` == max(`1Q2018`, na.rm = TRUE)) %>%
+  filter(!duplicated(MUNICIPIO)) %>%
+  select('MUNICIPIO', '1Q2018') %>%
+  ungroup()
+
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+
+
+############################ Q22018 ############################    
 
 
 Q22018 <- read_excel("Quarterly/02_04_2_trim_2018.xlsx", skip = 1)
-
 colnames(Q22018)[1] <- "Entidad.federativa"
-colnames(Q22018)[2] <- "Saldo.total"
-
-Q2_2018 <- Q22018 %>%
+colnames(Q22018)[6] <- "Saldo.total"
+Q2_2018_M <- Q22018 %>%
   slice(1:(n() - 4)) %>%                # Remove the last 4 rows
   rename(`2Q2018` = `Saldo.total`) %>%  # Rename "Saldo.total" to "1Q2018"
   rename(EntidadFed = `Entidad.federativa`) %>% # Rename "Entidad.federativa" to "EntidadFed"
   select(EntidadFed, `2Q2018`) %>%      # Select only the desired columns
   drop_na()                             # Remove rows where any column has NA
-                          # Remove rows where any column has NA
-Q2_2018$id <- seq_len(nrow(Q2_2018))
+Q2_2018_M$id <- seq_len(nrow(Q2_2018_M))
+print(Q2_2018rows <- nrow(Q2_2018_M))
+
+
+# Estados
+Q2_2018_E <- Q22018 %>%
+  slice(1:(n() - 4)) %>%                # Remove the last 4 rows
+  rename(`2Q2018` = `Saldo.total`,      # Rename "Saldo.total" to "1Q2012"
+         EntidadFed = `Entidad.federativa`) %>%  # Rename "Entidad.federativa" to "EntidadFed"
+  mutate(EntidadFed = toupper(EntidadFed)) %>%   # Convert EntidadFed to uppercase
+  mutate(EntidadFed = stri_trans_general(EntidadFed, "Latin-ASCII"))  %>%   # 
+  select(EntidadFed, `2Q2018`) %>%      # Select only the desired columns
+  drop_na() %>%
+  group_by(EntidadFed) %>%
+  mutate(ESTADO = if_else(`2Q2018` == max(`2Q2018`), 1, 0)) %>%
+  ungroup()
+Q2_2018_E$id <- seq_len(nrow(Q2_2018_E))
+print(Q2_2018_Erows <- nrow(Q2_2018_E))
+
+#Data for Municipios and Estados
+municipios_data <- read_excel("Quarterly/MUNICIPIOS_202408.xlsx")
+municipios_data <- municipios_data %>%
+  mutate(MUNICIPIO = stri_trans_general(MUNICIPIO, "Latin-ASCII"))
+estados_data <- read.csv("Quarterly/estados.csv", stringsAsFactors = FALSE)
+estados_data <- estados_data %>%
+  select('Nombre_Mayuscula') %>%
+  rename(`ESTADO` = `Nombre_Mayuscula`)
+
+merged_data <- inner_join(municipios_data, Q2_2018_E, by = c("MUNICIPIO" = "EntidadFed"))
+
+#Matching Municipio and Estado with the same name
+
+merged_data <- merged_data %>%
+  mutate(Matching_Mun_State = ifelse(MUNICIPIO %in% estados_data$ESTADO, 1, 0))
+filtered_data <- merged_data %>%
+  filter(Matching_Mun_State == 1)
+
+#Make the debt data as numeric
+filtered_data$`2Q2018` <- as.numeric(filtered_data$`2Q2018`)
+
+#Filter for rows with the maximum '1Q2012' value within each 'MUNICIPIO'
+
+Estados_2Q2018 <- filtered_data %>%
+  group_by(MUNICIPIO) %>%
+  filter(`2Q2018` == max(`2Q2018`, na.rm = TRUE)) %>%
+  filter(!duplicated(MUNICIPIO)) %>%
+  select('MUNICIPIO', '2Q2018') %>%
+  ungroup()
+
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+
+
+############################ Q32018 ############################    
+
 
 Q32018 <- read_excel("Quarterly/02_04_3_trim_2018.xlsx", skip = 1)
-
 colnames(Q32018)[1] <- "Entidad.federativa"
-colnames(Q32018)[2] <- "Saldo.total"
-
-Q3_2018 <- Q32018 %>%
+colnames(Q32018)[6] <- "Saldo.total"
+Q3_2018_M <- Q32018 %>%
   slice(1:(n() - 4)) %>%                # Remove the last 4 rows
   rename(`3Q2018` = `Saldo.total`) %>%  # Rename "Saldo.total" to "1Q2018"
   rename(EntidadFed = `Entidad.federativa`) %>% # Rename "Entidad.federativa" to "EntidadFed"
   select(EntidadFed, `3Q2018`) %>%      # Select only the desired columns
   drop_na()                             # Remove rows where any column has NA
-                          # Remove rows where any column has NA
+Q3_2018_M$id <- seq_len(nrow(Q3_2018_M))
+print(Q3_2018rows <- nrow(Q3_2018_M))
 
-Q3_2018$id <- seq_len(nrow(Q3_2018))
+# Estados
+Q3_2018_E <- Q32018 %>%
+  slice(1:(n() - 4)) %>%                # Remove the last 4 rows
+  rename(`3Q2018` = `Saldo.total`,      # Rename "Saldo.total" to "1Q2012"
+         EntidadFed = `Entidad.federativa`) %>%  # Rename "Entidad.federativa" to "EntidadFed"
+  mutate(EntidadFed = toupper(EntidadFed)) %>%   # Convert EntidadFed to uppercase
+  mutate(EntidadFed = stri_trans_general(EntidadFed, "Latin-ASCII"))  %>%   # 
+  select(EntidadFed, `3Q2018`) %>%      # Select only the desired columns
+  drop_na() %>%
+  group_by(EntidadFed) %>%
+  mutate(ESTADO = if_else(`3Q2018` == max(`3Q2018`), 1, 0)) %>%
+  ungroup()
+Q3_2018_E$id <- seq_len(nrow(Q3_2018_E))
+print(Q3_2018_Erows <- nrow(Q3_2018_E))
+
+#Data for Municipios and Estados
+municipios_data <- read_excel("Quarterly/MUNICIPIOS_202408.xlsx")
+municipios_data <- municipios_data %>%
+  mutate(MUNICIPIO = stri_trans_general(MUNICIPIO, "Latin-ASCII"))
+estados_data <- read.csv("Quarterly/estados.csv", stringsAsFactors = FALSE)
+estados_data <- estados_data %>%
+  select('Nombre_Mayuscula') %>%
+  rename(`ESTADO` = `Nombre_Mayuscula`)
+
+merged_data <- inner_join(municipios_data, Q3_2018_E, by = c("MUNICIPIO" = "EntidadFed"))
+
+#Matching Municipio and Estado with the same name
+
+merged_data <- merged_data %>%
+  mutate(Matching_Mun_State = ifelse(MUNICIPIO %in% estados_data$ESTADO, 1, 0))
+filtered_data <- merged_data %>%
+  filter(Matching_Mun_State == 1)
+
+#Make the debt data as numeric
+filtered_data$`3Q2018` <- as.numeric(filtered_data$`3Q2018`)
+
+#Filter for rows with the maximum '1Q2012' value within each 'MUNICIPIO'
+
+Estados_3Q2018 <- filtered_data %>%
+  group_by(MUNICIPIO) %>%
+  filter(`3Q2018` == max(`3Q2018`, na.rm = TRUE)) %>%
+  filter(!duplicated(MUNICIPIO)) %>%
+  select('MUNICIPIO', '3Q2018') %>%
+  ungroup()
+
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+
+
+############################ Q42018 ############################    
 
 
 Q42018 <- read_excel("Quarterly/02_04_4_trim_2018.xlsx", skip = 1)
-
 colnames(Q42018)[1] <- "Entidad.federativa"
-colnames(Q42018)[2] <- "Saldo.total"
-
-Q4_2018 <- Q42018 %>%
+colnames(Q42018)[6] <- "Saldo.total"
+Q4_2018_M <- Q42018 %>%
   slice(1:(n() - 4)) %>%                # Remove the last 4 rows
   rename(`4Q2018` = `Saldo.total`) %>%  # Rename "Saldo.total" to "1Q2018"
   rename(EntidadFed = `Entidad.federativa`) %>% # Rename "Entidad.federativa" to "EntidadFed"
   select(EntidadFed, `4Q2018`) %>%      # Select only the desired columns
   drop_na()                             # Remove rows where any column has NA
-                          # Remove rows where any column has NA
+Q4_2018_M$id <- seq_len(nrow(Q4_2018_M))
+print(Q4_2018rows <- nrow(Q4_2018_M))
 
-Q4_2018$id <- seq_len(nrow(Q4_2018))
+# Estados
+Q4_2018_E <- Q42018 %>%
+  slice(1:(n() - 4)) %>%                # Remove the last 4 rows
+  rename(`4Q2018` = `Saldo.total`,      # Rename "Saldo.total" to "1Q2012"
+         EntidadFed = `Entidad.federativa`) %>%  # Rename "Entidad.federativa" to "EntidadFed"
+  mutate(EntidadFed = toupper(EntidadFed)) %>%   # Convert EntidadFed to uppercase
+  mutate(EntidadFed = stri_trans_general(EntidadFed, "Latin-ASCII"))  %>%   # 
+  select(EntidadFed, `4Q2018`) %>%      # Select only the desired columns
+  drop_na() %>%
+  group_by(EntidadFed) %>%
+  mutate(ESTADO = if_else(`4Q2018` == max(`4Q2018`), 1, 0)) %>%
+  ungroup()
+Q4_2018_E$id <- seq_len(nrow(Q4_2018_E))
+print(Q4_2018_Erows <- nrow(Q4_2018_E))
+
+#Data for Municipios and Estados
+municipios_data <- read_excel("Quarterly/MUNICIPIOS_202408.xlsx")
+municipios_data <- municipios_data %>%
+  mutate(MUNICIPIO = stri_trans_general(MUNICIPIO, "Latin-ASCII"))
+estados_data <- read.csv("Quarterly/estados.csv", stringsAsFactors = FALSE)
+estados_data <- estados_data %>%
+  select('Nombre_Mayuscula') %>%
+  rename(`ESTADO` = `Nombre_Mayuscula`)
+
+merged_data <- inner_join(municipios_data, Q4_2018_E, by = c("MUNICIPIO" = "EntidadFed"))
+
+#Matching Municipio and Estado with the same name
+
+merged_data <- merged_data %>%
+  mutate(Matching_Mun_State = ifelse(MUNICIPIO %in% estados_data$ESTADO, 1, 0))
+filtered_data <- merged_data %>%
+  filter(Matching_Mun_State == 1)
+
+#Make the debt data as numeric
+filtered_data$`4Q2018` <- as.numeric(filtered_data$`4Q2018`)
+
+#Filter for rows with the maximum '1Q2012' value within each 'MUNICIPIO'
+
+Estados_4Q2018 <- filtered_data %>%
+  group_by(MUNICIPIO) %>%
+  filter(`4Q2018` == max(`4Q2018`, na.rm = TRUE)) %>%
+  filter(!duplicated(MUNICIPIO)) %>%
+  select('MUNICIPIO', '4Q2018') %>%
+  ungroup()
+
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+
+
 
 merged_data_2018 <- Q1_2018 %>%
   left_join(Q2_2018, by = "id") %>%
@@ -421,64 +1843,283 @@ merged_data_2018  <- merged_data_2018 %>%
 
 
 ```{r get data 2017 , echo=FALSE}
-############################ 2017 ############################    
+####################################################### 2017 ####################################################### 
 
 library(tidyr)
 
+############################ Q12017 ############################    
+
+#Municipios
 Q12017 <- read_excel("Quarterly/02_04_1_trim_2017.xlsx", skip = 1)
 colnames(Q12017)[1] <- "Entidad.federativa"
-colnames(Q12017)[2] <- "Saldo.total"
+colnames(Q12017)[6] <- "Saldo.total"
 
-Q1_2017 <- Q12017 %>%
+Q1_2017_M <- Q12017 %>%
   slice(1:(n() - 4)) %>%                # Remove the last 4 rows
   rename(`1Q2017` = `Saldo.total`) %>%  # Rename "Saldo.total" to "1Q2018"
   rename(EntidadFed = `Entidad.federativa`) %>% # Rename "Entidad.federativa" to "EntidadFed"
   select(EntidadFed, `1Q2017`) %>%      # Select only the desired columns
   drop_na()                             # Remove rows where any column has NA
-                          # Remove rows where any column has NA
-Q1_2017$id <- seq_len(nrow(Q1_2017))
+Q1_2017_M$id <- seq_len(nrow(Q1_2017_M))
+print(Q1_2017rows <- nrow(Q1_2017_M))
 
 
+# Estados
+Q1_2017_E <- Q12017 %>%
+  slice(1:(n() - 4)) %>%                # Remove the last 4 rows
+  rename(`1Q2017` = `Saldo.total`,      # Rename "Saldo.total" to "1Q2012"
+         EntidadFed = `Entidad.federativa`) %>%  # Rename "Entidad.federativa" to "EntidadFed"
+  mutate(EntidadFed = toupper(EntidadFed)) %>%   # Convert EntidadFed to uppercase
+  mutate(EntidadFed = stri_trans_general(EntidadFed, "Latin-ASCII"))  %>%   # 
+  select(EntidadFed, `1Q2017`) %>%      # Select only the desired columns
+  drop_na() %>%
+  group_by(EntidadFed) %>%
+  mutate(ESTADO = if_else(`1Q2017` == max(`1Q2017`), 1, 0)) %>%
+  ungroup()
+Q1_2017_E$id <- seq_len(nrow(Q1_2017_E))
+print(Q1_2017_Erows <- nrow(Q1_2017_E))
+
+
+#Data for Municipios and Estados
+municipios_data <- read_excel("Quarterly/MUNICIPIOS_202408.xlsx")
+municipios_data <- municipios_data %>%
+  mutate(MUNICIPIO = stri_trans_general(MUNICIPIO, "Latin-ASCII"))
+estados_data <- read.csv("Quarterly/estados.csv", stringsAsFactors = FALSE)
+estados_data <- estados_data %>%
+  select('Nombre_Mayuscula') %>%
+  rename(`ESTADO` = `Nombre_Mayuscula`)
+
+merged_data <- inner_join(municipios_data, Q1_2017_E, by = c("MUNICIPIO" = "EntidadFed"))
+
+#Matching Municipio and Estado with the same name
+
+merged_data <- merged_data %>%
+  mutate(Matching_Mun_State = ifelse(MUNICIPIO %in% estados_data$ESTADO, 1, 0))
+filtered_data <- merged_data %>%
+  filter(Matching_Mun_State == 1)
+
+#Make the debt data as numeric
+filtered_data$`1Q2017` <- as.numeric(filtered_data$`1Q2017`)
+
+#Filter for rows with the maximum '1Q2012' value within each 'MUNICIPIO'
+
+Estados_1Q2017 <- filtered_data %>%
+  group_by(MUNICIPIO) %>%
+  filter(`1Q2017` == max(`1Q2017`, na.rm = TRUE)) %>%
+  filter(!duplicated(MUNICIPIO)) %>%
+  select('MUNICIPIO', '1Q2017') %>%
+  ungroup()
+
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+
+
+############################ Q22017 ############################    
+
+#Municipios
 Q22017 <- read_excel("Quarterly/02_04_2_trim_2017.xlsx", skip = 1)
 colnames(Q22017)[1] <- "Entidad.federativa"
-colnames(Q22017)[2] <- "Saldo.total"
-
-Q2_2017 <- Q22017 %>%
+colnames(Q22017)[6] <- "Saldo.total"
+Q2_2017_M <- Q22017 %>%
   slice(1:(n() - 4)) %>%                # Remove the last 4 rows
   rename(`2Q2017` = `Saldo.total`) %>%  # Rename "Saldo.total" to "1Q2018"
   rename(EntidadFed = `Entidad.federativa`) %>% # Rename "Entidad.federativa" to "EntidadFed"
   select(EntidadFed, `2Q2017`) %>%      # Select only the desired columns
   drop_na()                             # Remove rows where any column has NA
-                          # Remove rows where any column has NA
-Q2_2017$id <- seq_len(nrow(Q2_2017))
+Q2_2017_M$id <- seq_len(nrow(Q2_2017_M))
+print(Q2_2017rows <- nrow(Q2_2017_M))
 
 
+# Estados
+Q2_2017_E <- Q22017 %>%
+  slice(1:(n() - 4)) %>%                # Remove the last 4 rows
+  rename(`2Q2017` = `Saldo.total`,      # Rename "Saldo.total" to "1Q2012"
+         EntidadFed = `Entidad.federativa`) %>%  # Rename "Entidad.federativa" to "EntidadFed"
+  mutate(EntidadFed = toupper(EntidadFed)) %>%   # Convert EntidadFed to uppercase
+  mutate(EntidadFed = stri_trans_general(EntidadFed, "Latin-ASCII"))  %>%   # 
+  select(EntidadFed, `2Q2017`) %>%      # Select only the desired columns
+  drop_na() %>%
+  group_by(EntidadFed) %>%
+  mutate(ESTADO = if_else(`2Q2017` == max(`2Q2017`), 1, 0)) %>%
+  ungroup()
+Q2_2017_E$id <- seq_len(nrow(Q2_2017_E))
+print(Q2_2017_Erows <- nrow(Q2_2017_E))
+
+
+#Data for Municipios and Estados
+municipios_data <- read_excel("Quarterly/MUNICIPIOS_202408.xlsx")
+municipios_data <- municipios_data %>%
+  mutate(MUNICIPIO = stri_trans_general(MUNICIPIO, "Latin-ASCII"))
+estados_data <- read.csv("Quarterly/estados.csv", stringsAsFactors = FALSE)
+estados_data <- estados_data %>%
+  select('Nombre_Mayuscula') %>%
+  rename(`ESTADO` = `Nombre_Mayuscula`)
+
+merged_data <- inner_join(municipios_data, Q2_2017_E, by = c("MUNICIPIO" = "EntidadFed"))
+
+#Matching Municipio and Estado with the same name
+
+merged_data <- merged_data %>%
+  mutate(Matching_Mun_State = ifelse(MUNICIPIO %in% estados_data$ESTADO, 1, 0))
+filtered_data <- merged_data %>%
+  filter(Matching_Mun_State == 1)
+
+#Make the debt data as numeric
+filtered_data$`2Q2017` <- as.numeric(filtered_data$`2Q2017`)
+
+#Filter for rows with the maximum '1Q2012' value within each 'MUNICIPIO'
+
+Estados_2Q2017 <- filtered_data %>%
+  group_by(MUNICIPIO) %>%
+  filter(`2Q2017` == max(`2Q2017`, na.rm = TRUE)) %>%
+  filter(!duplicated(MUNICIPIO)) %>%
+  select('MUNICIPIO', '2Q2017') %>%
+  ungroup()
+
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+
+
+############################ Q32017 ############################    
+
+#Municipios
 Q32017 <- read_excel("Quarterly/02_04_3_trim_2017.xlsx", skip = 1)
 colnames(Q32017)[1] <- "Entidad.federativa"
-colnames(Q32017)[2] <- "Saldo.total"
-
-Q3_2017 <- Q32017 %>%
+colnames(Q32017)[6] <- "Saldo.total"
+Q3_2017_M <- Q32017 %>%
   slice(1:(n() - 4)) %>%                # Remove the last 4 rows
   rename(`3Q2017` = `Saldo.total`) %>%  # Rename "Saldo.total" to "1Q2018"
   rename(EntidadFed = `Entidad.federativa`) %>% # Rename "Entidad.federativa" to "EntidadFed"
   select(EntidadFed, `3Q2017`) %>%      # Select only the desired columns
   drop_na()                             # Remove rows where any column has NA
-                          # Remove rows where any column has NA
-Q3_2017$id <- seq_len(nrow(Q3_2017))
+Q3_2017_M$id <- seq_len(nrow(Q3_2017_M))
+print(Q3_2017rows <- nrow(Q3_2017_M))
 
 
+
+# Estados
+Q3_2017_E <- Q32017 %>%
+  slice(1:(n() - 4)) %>%                # Remove the last 4 rows
+  rename(`3Q2017` = `Saldo.total`,      # Rename "Saldo.total" to "1Q2012"
+         EntidadFed = `Entidad.federativa`) %>%  # Rename "Entidad.federativa" to "EntidadFed"
+  mutate(EntidadFed = toupper(EntidadFed)) %>%   # Convert EntidadFed to uppercase
+  mutate(EntidadFed = stri_trans_general(EntidadFed, "Latin-ASCII"))  %>%   # 
+  select(EntidadFed, `3Q2017`) %>%      # Select only the desired columns
+  drop_na() %>%
+  group_by(EntidadFed) %>%
+  mutate(ESTADO = if_else(`3Q2017` == max(`3Q2017`), 1, 0)) %>%
+  ungroup()
+Q3_2017_E$id <- seq_len(nrow(Q3_2017_E))
+print(Q3_2017_Erows <- nrow(Q3_2017_E))
+
+
+#Data for Municipios and Estados
+municipios_data <- read_excel("Quarterly/MUNICIPIOS_202408.xlsx")
+municipios_data <- municipios_data %>%
+  mutate(MUNICIPIO = stri_trans_general(MUNICIPIO, "Latin-ASCII"))
+estados_data <- read.csv("Quarterly/estados.csv", stringsAsFactors = FALSE)
+estados_data <- estados_data %>%
+  select('Nombre_Mayuscula') %>%
+  rename(`ESTADO` = `Nombre_Mayuscula`)
+
+merged_data <- inner_join(municipios_data, Q3_2017_E, by = c("MUNICIPIO" = "EntidadFed"))
+
+#Matching Municipio and Estado with the same name
+
+merged_data <- merged_data %>%
+  mutate(Matching_Mun_State = ifelse(MUNICIPIO %in% estados_data$ESTADO, 1, 0))
+filtered_data <- merged_data %>%
+  filter(Matching_Mun_State == 1)
+
+#Make the debt data as numeric
+filtered_data$`3Q2017` <- as.numeric(filtered_data$`3Q2017`)
+
+#Filter for rows with the maximum '1Q2012' value within each 'MUNICIPIO'
+
+Estados_3Q2017 <- filtered_data %>%
+  group_by(MUNICIPIO) %>%
+  filter(`3Q2017` == max(`3Q2017`, na.rm = TRUE)) %>%
+  filter(!duplicated(MUNICIPIO)) %>%
+  select('MUNICIPIO', '3Q2017') %>%
+  ungroup()
+
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+
+
+############################ Q42017 ############################    
+
+#Municipios
 Q42017 <- read_excel("Quarterly/02_04_4_trim_2017.xlsx", skip = 1)
 colnames(Q42017)[1] <- "Entidad.federativa"
-colnames(Q42017)[2] <- "Saldo.total"
-
-Q4_2017 <- Q42017 %>%
+colnames(Q42017)[6] <- "Saldo.total"
+Q4_2017_M <- Q42017 %>%
   slice(1:(n() - 4)) %>%                # Remove the last 4 rows due to format
   rename(`4Q2017` = `Saldo.total`) %>%  # Rename "Saldo.total" to "1Q2018"
   rename(EntidadFed = `Entidad.federativa`) %>% # Rename "Entidad.federativa" to "EntidadFed"
   select(EntidadFed, `4Q2017`) %>%      # Select only the desired columns
   drop_na()                             # Remove rows where any column has NA
-                          # Remove rows where any column has NA
-Q4_2017$id <- seq_len(nrow(Q4_2017))
+Q4_2017_M$id <- seq_len(nrow(Q4_2017_M))
+print(Q4_2017rows <- nrow(Q4_2017_M))
+
+
+# Estados
+Q4_2017_E <- Q42017 %>%
+  slice(1:(n() - 4)) %>%                # Remove the last 4 rows
+  rename(`4Q2017` = `Saldo.total`,      # Rename "Saldo.total" to "1Q2012"
+         EntidadFed = `Entidad.federativa`) %>%  # Rename "Entidad.federativa" to "EntidadFed"
+  mutate(EntidadFed = toupper(EntidadFed)) %>%   # Convert EntidadFed to uppercase
+  mutate(EntidadFed = stri_trans_general(EntidadFed, "Latin-ASCII"))  %>%   # 
+  select(EntidadFed, `4Q2017`) %>%      # Select only the desired columns
+  drop_na() %>%
+  group_by(EntidadFed) %>%
+  mutate(ESTADO = if_else(`4Q2017` == max(`4Q2017`), 1, 0)) %>%
+  ungroup()
+Q4_2017_E$id <- seq_len(nrow(Q4_2017_E))
+print(Q4_2017_Erows <- nrow(Q4_2017_E))
+
+
+#Data for Municipios and Estados
+municipios_data <- read_excel("Quarterly/MUNICIPIOS_202408.xlsx")
+municipios_data <- municipios_data %>%
+  mutate(MUNICIPIO = stri_trans_general(MUNICIPIO, "Latin-ASCII"))
+estados_data <- read.csv("Quarterly/estados.csv", stringsAsFactors = FALSE)
+estados_data <- estados_data %>%
+  select('Nombre_Mayuscula') %>%
+  rename(`ESTADO` = `Nombre_Mayuscula`)
+
+merged_data <- inner_join(municipios_data, Q4_2017_E, by = c("MUNICIPIO" = "EntidadFed"))
+
+#Matching Municipio and Estado with the same name
+
+merged_data <- merged_data %>%
+  mutate(Matching_Mun_State = ifelse(MUNICIPIO %in% estados_data$ESTADO, 1, 0))
+filtered_data <- merged_data %>%
+  filter(Matching_Mun_State == 1)
+
+#Make the debt data as numeric
+filtered_data$`4Q2017` <- as.numeric(filtered_data$`4Q2017`)
+
+#Filter for rows with the maximum '1Q2012' value within each 'MUNICIPIO'
+
+Estados_4Q2017 <- filtered_data %>%
+  group_by(MUNICIPIO) %>%
+  filter(`4Q2017` == max(`4Q2017`, na.rm = TRUE)) %>%
+  filter(!duplicated(MUNICIPIO)) %>%
+  select('MUNICIPIO', '4Q2017') %>%
+  ungroup()
+
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+
 
 merged_data_2017 <- Q1_2017 %>%
   left_join(Q2_2017, by = "id") %>%
@@ -499,9 +2140,9 @@ merged_data_2017  <- merged_data_2017 %>%
 
 library(tidyr)
 
-Q12016 <- read_excel("Quarterly/02_04_1_trim_2017.xlsx", skip = 1)
+Q12016 <- read_excel("Quarterly/02_01_1_trim_2016.xlsx", skip = 1)
 colnames(Q12016)[1] <- "Entidad.federativa"
-colnames(Q12016)[2] <- "Saldo.total"
+colnames(Q12016)[6] <- "Saldo.total"
 
 Q1_2016 <- Q12016 %>%
   slice(1:(n() - 4)) %>%                # Remove the last 4 rows
@@ -509,120 +2150,349 @@ Q1_2016 <- Q12016 %>%
   rename(EntidadFed = `Entidad.federativa`) %>% # Rename "Entidad.federativa" to "EntidadFed"
   select(EntidadFed, `1Q2016`) %>%      # Select only the desired columns
   drop_na()                             # Remove rows where any column has NA
-                          # Remove rows where any column has NA
 Q1_2016$id <- seq_len(nrow(Q1_2016))
+print(Q1_2016rows <- nrow(Q1_2016))
 
 
-Q22016 <- read_excel("Quarterly/02_04_2_trim_2016.xlsx", skip = 1)
+
+Q22016 <- read_excel("Quarterly/02_01_2_trim_2016.xlsx", skip = 1)
 colnames(Q22016)[1] <- "Entidad.federativa"
-colnames(Q22016)[2] <- "Saldo.total"
-
+colnames(Q22016)[6] <- "Saldo.total"
 Q2_2016 <- Q22016 %>%
   slice(1:(n() - 4)) %>%                # Remove the last 4 rows
   rename(`2Q2016` = `Saldo.total`) %>%  # Rename "Saldo.total" to "1Q2018"
   rename(EntidadFed = `Entidad.federativa`) %>% # Rename "Entidad.federativa" to "EntidadFed"
   select(EntidadFed, `2Q2016`) %>%      # Select only the desired columns
   drop_na()                             # Remove rows where any column has NA
-                          # Remove rows where any column has NA
 Q2_2016$id <- seq_len(nrow(Q2_2016))
+print(Q2_2016rows <- nrow(Q2_2016))
 
 
-#Q32017 <- read_excel("Quarterly/02_04_3_trim_2017.xlsx", skip = 1)
-#colnames(Q32017)[1] <- "Entidad.federativa"
-#colnames(Q32017)[2] <- "Saldo.total"
 
-#Q3_2017 <- Q32017 %>%
-#  slice(1:(n() - 4)) %>%                # Remove the last 4 rows
-#  rename(`3Q2017` = `Saldo.total`) %>%  # Rename "Saldo.total" to "1Q2018"
-#  rename(EntidadFed = `Entidad.federativa`) %>% # Rename "Entidad.federativa" to "EntidadFed"
-#  select(EntidadFed, `3Q2017`) %>%      # Select only the desired columns
-#  drop_na()                             # Remove rows where any column has NA
+Q32016 <- read_excel("Quarterly/02_01_3_trim_2016.xlsx", skip = 1)
+colnames(Q32016)[1] <- "Entidad.federativa"
+colnames(Q32016)[6] <- "Saldo.total"
+
+Q3_2016 <- Q32016 %>%
+  slice(1:(n() - 4)) %>%                # Remove the last 4 rows
+  rename(`3Q2016` = `Saldo.total`) %>%  # Rename "Saldo.total" to "1Q2018"
+  rename(EntidadFed = `Entidad.federativa`) %>% # Rename "Entidad.federativa" to "EntidadFed"
+  select(EntidadFed, `3Q2016`) %>%      # Select only the desired columns
+  drop_na()                             # Remove rows where any column has NA
                           # Remove rows where any column has NA
-#Q3_2017$id <- seq_len(nrow(Q3_2017))
+Q3_2016$id <- seq_len(nrow(Q3_2016))
+print(Q3_2016rows <- nrow(Q3_2016))
 
 
-#Q42017 <- read_excel("Quarterly/02_04_4_trim_2017.xlsx", skip = 1)
-#colnames(Q42017)[1] <- "Entidad.federativa"
-#colnames(Q42017)[2] <- "Saldo.total"
+###### FORMAT CHANGES FOR Q4 2016
 
-#Q4_2017 <- Q42017 %>%
-#  slice(1:(n() - 4)) %>%                # Remove the last 4 rows
-#  rename(`4Q2017` = `Saldo.total`) %>%  # Rename "Saldo.total" to "1Q2018"
-#  rename(EntidadFed = `Entidad.federativa`) %>% # Rename "Entidad.federativa" to "EntidadFed"
-#  select(EntidadFed, `4Q2017`) %>%      # Select only the desired columns
-#  drop_na()                             # Remove rows where any column has NA
-                          # Remove rows where any column has NA
-#Q4_2017$id <- seq_len(nrow(Q4_2017))
+Q42016 <- read_excel("Quarterly/02_01_4_trim_2016.xls", skip = 5)
+Q42016 <- Q42016[-2, ]
+Q4_2016 <- Q42016 %>%
+  rename(Entidad.federativa = `...3`, Saldo.total = `...4`) %>%
+  select(Entidad.federativa, Saldo.total)
 
-#merged_data_2017 <- Q1_2017 %>%
-#  left_join(Q2_2017, by = "id") %>%
-#  left_join(Q3_2017, by = "id") %>%
-#  left_join(Q4_2017, by = "id")
+Q4_2016$id <- seq_len(nrow(Q4_2016))
+print(Q4_2016rows <- nrow(Q4_2016))
+
+
+#merged_data_2016 <- Q1_2016 %>%
+#  left_join(Q2_2016, by = "id") %>%
+#  left_join(Q3_2016, by = "id") %>%
+#  left_join(Q4_2016, by = "id")
 
 #merged_data_2017  <- merged_data_2017 %>%
 #  select(-EntidadFed.y, -EntidadFed.x.x, -EntidadFed.y.y)
 
+
+
 ```
 
+
+
 ```{r get data 2015 , echo=FALSE}
-############################ 2015 ############################    
+
+
+####################################################### 2015 ####################################################### 
 
 library(tidyr)
 
-Q12015 <- read_excel("Quarterly/02_04_1_trim_2015.xlsx", skip = 1)
-colnames(Q12015)[1] <- "Entidad.federativa"
-colnames(Q12015)[2] <- "Saldo.total"
+############################ Q12015 ############################    
 
-Q1_2015 <- Q12015 %>%
+
+Q12015 <- read_excel("Quarterly/02_01_1_trim_2015.xlsx", skip = 1)
+colnames(Q12015)[1] <- "Entidad.federativa"
+colnames(Q12015)[6] <- "Saldo.total"
+
+# Municipios
+Q1_2015_M <- Q12015 %>%
   slice(1:(n() - 4)) %>%                # Remove the last 4 rows
   rename(`1Q2015` = `Saldo.total`) %>%  # Rename "Saldo.total" to "1Q2018"
   rename(EntidadFed = `Entidad.federativa`) %>% # Rename "Entidad.federativa" to "EntidadFed"
   select(EntidadFed, `1Q2015`) %>%      # Select only the desired columns
   drop_na()                             # Remove rows where any column has NA
-                          # Remove rows where any column has NA
-Q1_2015$id <- seq_len(nrow(Q1_2015))
+Q1_2015_M$id <- seq_len(nrow(Q1_2015_M))
+print(Q1_2015rows <- nrow(Q1_2015_M))
 
 
-Q22015 <- read_excel("Quarterly/02_04_2_trim_2015.xlsx", skip = 1)
+# Estados
+Q1_2015_E <- Q12015 %>%
+  slice(1:(n() - 4)) %>%                # Remove the last 4 rows
+  rename(`1Q2015` = `Saldo.total`,      # Rename "Saldo.total" to "1Q2012"
+         EntidadFed = `Entidad.federativa`) %>%  # Rename "Entidad.federativa" to "EntidadFed"
+  mutate(EntidadFed = toupper(EntidadFed)) %>%   # Convert EntidadFed to uppercase
+  mutate(EntidadFed = stri_trans_general(EntidadFed, "Latin-ASCII"))  %>%   # 
+  select(EntidadFed, `1Q2015`) %>%      # Select only the desired columns
+  drop_na() %>%
+  group_by(EntidadFed) %>%
+  mutate(ESTADO = if_else(`1Q2015` == max(`1Q2015`), 1, 0)) %>%
+  ungroup()
+Q1_2015_E$id <- seq_len(nrow(Q1_2015_E))
+print(Q1_2015_Erows <- nrow(Q1_2015_E))
+
+
+#Data for Municipios and Estados
+municipios_data <- read_excel("Quarterly/MUNICIPIOS_202408.xlsx")
+municipios_data <- municipios_data %>%
+  mutate(MUNICIPIO = stri_trans_general(MUNICIPIO, "Latin-ASCII"))
+estados_data <- read.csv("Quarterly/estados.csv", stringsAsFactors = FALSE)
+estados_data <- estados_data %>%
+  select('Nombre_Mayuscula') %>%
+  rename(`ESTADO` = `Nombre_Mayuscula`)
+
+merged_data <- inner_join(municipios_data, Q1_2015_E, by = c("MUNICIPIO" = "EntidadFed"))
+
+#Matching Municipio and Estado with the same name
+
+merged_data <- merged_data %>%
+  mutate(Matching_Mun_State = ifelse(MUNICIPIO %in% estados_data$ESTADO, 1, 0))
+filtered_data <- merged_data %>%
+  filter(Matching_Mun_State == 1)
+
+#Make the debt data as numeric
+filtered_data$`1Q2015` <- as.numeric(filtered_data$`1Q2015`)
+
+#Filter for rows with the maximum '1Q2012' value within each 'MUNICIPIO'
+
+Estados_1Q2015 <- filtered_data %>%
+  group_by(MUNICIPIO) %>%
+  filter(`1Q2015` == max(`1Q2015`, na.rm = TRUE)) %>%
+  filter(!duplicated(MUNICIPIO)) %>%
+  select('MUNICIPIO', '1Q2015') %>%
+  ungroup()
+
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+
+
+############################ Q22015 ############################    
+
+
+Q22015 <- read_excel("Quarterly/02_01_02_trim_2015.xlsx", skip = 1)
 colnames(Q22015)[1] <- "Entidad.federativa"
-colnames(Q22015)[2] <- "Saldo.total"
-
-Q2_2015 <- Q22015 %>%
+colnames(Q22015)[6] <- "Saldo.total"
+Q2_2015_M <- Q22015 %>%
   slice(1:(n() - 4)) %>%                # Remove the last 4 rows
   rename(`2Q2015` = `Saldo.total`) %>%  # Rename "Saldo.total" to "1Q2018"
   rename(EntidadFed = `Entidad.federativa`) %>% # Rename "Entidad.federativa" to "EntidadFed"
   select(EntidadFed, `2Q2015`) %>%      # Select only the desired columns
   drop_na()                             # Remove rows where any column has NA
-                          # Remove rows where any column has NA
-Q2_2015$id <- seq_len(nrow(Q2_2015))
+Q2_2015_M$id <- seq_len(nrow(Q2_2015_M))
+print(Q2_2015rows <- nrow(Q2_2015_M))
 
 
-Q32015 <- read_excel("Quarterly/02_04_3_trim_2015.xlsx", skip = 1)
+# Estados
+Q2_2015_E <- Q22015 %>%
+  slice(1:(n() - 4)) %>%                # Remove the last 4 rows
+  rename(`2Q2015` = `Saldo.total`,      # Rename "Saldo.total" to "1Q2012"
+         EntidadFed = `Entidad.federativa`) %>%  # Rename "Entidad.federativa" to "EntidadFed"
+  mutate(EntidadFed = toupper(EntidadFed)) %>%   # Convert EntidadFed to uppercase
+  mutate(EntidadFed = stri_trans_general(EntidadFed, "Latin-ASCII"))  %>%   # 
+  select(EntidadFed, `2Q2015`) %>%      # Select only the desired columns
+  drop_na() %>%
+  group_by(EntidadFed) %>%
+  mutate(ESTADO = if_else(`2Q2015` == max(`2Q2015`), 1, 0)) %>%
+  ungroup()
+Q2_2015_E$id <- seq_len(nrow(Q2_2015_E))
+print(Q2_2015_Erows <- nrow(Q2_2015_E))
+
+
+#Data for Municipios and Estados
+municipios_data <- read_excel("Quarterly/MUNICIPIOS_202408.xlsx")
+municipios_data <- municipios_data %>%
+  mutate(MUNICIPIO = stri_trans_general(MUNICIPIO, "Latin-ASCII"))
+estados_data <- read.csv("Quarterly/estados.csv", stringsAsFactors = FALSE)
+estados_data <- estados_data %>%
+  select('Nombre_Mayuscula') %>%
+  rename(`ESTADO` = `Nombre_Mayuscula`)
+
+merged_data <- inner_join(municipios_data, Q2_2015_E, by = c("MUNICIPIO" = "EntidadFed"))
+
+#Matching Municipio and Estado with the same name
+
+merged_data <- merged_data %>%
+  mutate(Matching_Mun_State = ifelse(MUNICIPIO %in% estados_data$ESTADO, 1, 0))
+filtered_data <- merged_data %>%
+  filter(Matching_Mun_State == 1)
+
+#Make the debt data as numeric
+filtered_data$`2Q2015` <- as.numeric(filtered_data$`2Q2015`)
+
+#Filter for rows with the maximum '1Q2012' value within each 'MUNICIPIO'
+
+Estados_2Q2015 <- filtered_data %>%
+  group_by(MUNICIPIO) %>%
+  filter(`2Q2015` == max(`2Q2015`, na.rm = TRUE)) %>%
+  filter(!duplicated(MUNICIPIO)) %>%
+  select('MUNICIPIO', '2Q2015') %>%
+  ungroup()
+
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+
+############################ Q32015 ############################    
+
+#Municipios
+Q32015 <- read_excel("Quarterly/02_01_3_trim_2015.xlsx", skip = 1)
 colnames(Q32015)[1] <- "Entidad.federativa"
-colnames(Q32015)[2] <- "Saldo.total"
-
-Q3_2015 <- Q32015 %>%
+colnames(Q32015)[6] <- "Saldo.total"
+Q3_2015_M <- Q32015 %>%
   slice(1:(n() - 4)) %>%                # Remove the last 4 rows
   rename(`3Q2015` = `Saldo.total`) %>%  # Rename "Saldo.total" to "1Q2018"
   rename(EntidadFed = `Entidad.federativa`) %>% # Rename "Entidad.federativa" to "EntidadFed"
   select(EntidadFed, `3Q2015`) %>%      # Select only the desired columns
   drop_na()                             # Remove rows where any column has NA
-                          # Remove rows where any column has NA
-Q3_2015$id <- seq_len(nrow(Q3_2015))
+Q3_2015_M$id <- seq_len(nrow(Q3_2015_M))
+print(Q3_2015rows <- nrow(Q3_2015_M))
 
 
-Q42015 <- read_excel("Quarterly/02_04_4_trim_2015.xlsx", skip = 1)
+# Estados
+Q3_2015_E <- Q32015 %>%
+  slice(1:(n() - 4)) %>%                # Remove the last 4 rows
+  rename(`3Q2015` = `Saldo.total`,      # Rename "Saldo.total" to "1Q2012"
+         EntidadFed = `Entidad.federativa`) %>%  # Rename "Entidad.federativa" to "EntidadFed"
+  mutate(EntidadFed = toupper(EntidadFed)) %>%   # Convert EntidadFed to uppercase
+  mutate(EntidadFed = stri_trans_general(EntidadFed, "Latin-ASCII"))  %>%   # 
+  select(EntidadFed, `3Q2015`) %>%      # Select only the desired columns
+  drop_na() %>%
+  group_by(EntidadFed) %>%
+  mutate(ESTADO = if_else(`3Q2015` == max(`3Q2015`), 1, 0)) %>%
+  ungroup()
+Q3_2015_E$id <- seq_len(nrow(Q3_2015_E))
+print(Q3_2015_Erows <- nrow(Q3_2015_E))
+
+
+#Data for Municipios and Estados
+municipios_data <- read_excel("Quarterly/MUNICIPIOS_202408.xlsx")
+municipios_data <- municipios_data %>%
+  mutate(MUNICIPIO = stri_trans_general(MUNICIPIO, "Latin-ASCII"))
+estados_data <- read.csv("Quarterly/estados.csv", stringsAsFactors = FALSE)
+estados_data <- estados_data %>%
+  select('Nombre_Mayuscula') %>%
+  rename(`ESTADO` = `Nombre_Mayuscula`)
+
+merged_data <- inner_join(municipios_data, Q3_2015_E, by = c("MUNICIPIO" = "EntidadFed"))
+
+#Matching Municipio and Estado with the same name
+
+merged_data <- merged_data %>%
+  mutate(Matching_Mun_State = ifelse(MUNICIPIO %in% estados_data$ESTADO, 1, 0))
+filtered_data <- merged_data %>%
+  filter(Matching_Mun_State == 1)
+
+#Make the debt data as numeric
+filtered_data$`3Q2015` <- as.numeric(filtered_data$`3Q2015`)
+
+#Filter for rows with the maximum '1Q2012' value within each 'MUNICIPIO'
+
+Estados_3Q2015 <- filtered_data %>%
+  group_by(MUNICIPIO) %>%
+  filter(`3Q2015` == max(`3Q2015`, na.rm = TRUE)) %>%
+  filter(!duplicated(MUNICIPIO)) %>%
+  select('MUNICIPIO', '3Q2015') %>%
+  ungroup()
+
+
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+
+
+############################ Q42015 ############################    
+
+#Municipios
+Q42015 <- read_excel("Quarterly/02_01_4_trim_2015.xlsx", skip = 1)
 colnames(Q42015)[1] <- "Entidad.federativa"
-colnames(Q42015)[2] <- "Saldo.total"
-
-Q4_2015 <- Q42015 %>%
+colnames(Q42015)[6] <- "Saldo.total"
+Q4_2015_M <- Q42015 %>%
   slice(1:(n() - 4)) %>%                # Remove the last 4 rows
   rename(`4Q2015` = `Saldo.total`) %>%  # Rename "Saldo.total" to "1Q2018"
   rename(EntidadFed = `Entidad.federativa`) %>% # Rename "Entidad.federativa" to "EntidadFed"
   select(EntidadFed, `4Q2015`) %>%      # Select only the desired columns
   drop_na()                             # Remove rows where any column has NA
-                          # Remove rows where any column has NA
-Q4_2015$id <- seq_len(nrow(Q4_2015))
+Q4_2015_M$id <- seq_len(nrow(Q4_2015_M))
+print(Q4_2015rows <- nrow(Q4_2015_M))
+
+
+# Estados
+Q4_2015_E <- Q42015 %>%
+  slice(1:(n() - 4)) %>%                # Remove the last 4 rows
+  rename(`4Q2015` = `Saldo.total`,      # Rename "Saldo.total" to "1Q2012"
+         EntidadFed = `Entidad.federativa`) %>%  # Rename "Entidad.federativa" to "EntidadFed"
+  mutate(EntidadFed = toupper(EntidadFed)) %>%   # Convert EntidadFed to uppercase
+  mutate(EntidadFed = stri_trans_general(EntidadFed, "Latin-ASCII"))  %>%   # 
+  select(EntidadFed, `4Q2015`) %>%      # Select only the desired columns
+  drop_na() %>%
+  group_by(EntidadFed) %>%
+  mutate(ESTADO = if_else(`4Q2015` == max(`4Q2015`), 1, 0)) %>%
+  ungroup()
+Q4_2015_E$id <- seq_len(nrow(Q4_2015_E))
+print(Q4_2015_Erows <- nrow(Q4_2015_E))
+
+
+#Data for Municipios and Estados
+municipios_data <- read_excel("Quarterly/MUNICIPIOS_202408.xlsx")
+municipios_data <- municipios_data %>%
+  mutate(MUNICIPIO = stri_trans_general(MUNICIPIO, "Latin-ASCII"))
+estados_data <- read.csv("Quarterly/estados.csv", stringsAsFactors = FALSE)
+estados_data <- estados_data %>%
+  select('Nombre_Mayuscula') %>%
+  rename(`ESTADO` = `Nombre_Mayuscula`)
+
+merged_data <- inner_join(municipios_data, Q4_2015_E, by = c("MUNICIPIO" = "EntidadFed"))
+
+#Matching Municipio and Estado with the same name
+
+merged_data <- merged_data %>%
+  mutate(Matching_Mun_State = ifelse(MUNICIPIO %in% estados_data$ESTADO, 1, 0))
+filtered_data <- merged_data %>%
+  filter(Matching_Mun_State == 1)
+
+#Make the debt data as numeric
+filtered_data$`4Q2015` <- as.numeric(filtered_data$`4Q2015`)
+
+#Filter for rows with the maximum '1Q2012' value within each 'MUNICIPIO'
+
+Estados_4Q2015 <- filtered_data %>%
+  group_by(MUNICIPIO) %>%
+  filter(`4Q2015` == max(`4Q2015`, na.rm = TRUE)) %>%
+  filter(!duplicated(MUNICIPIO)) %>%
+  select('MUNICIPIO', '4Q2015') %>%
+  ungroup()
+
+
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+
+
+
 
 merged_data_2015 <- Q1_2015 %>%
   left_join(Q2_2015, by = "id") %>%
@@ -641,9 +2511,9 @@ merged_data_2015  <- merged_data_2015 %>%
 
 library(tidyr)
 
-Q12014 <- read_excel("Quarterly/02_04_1_trim_2014.xlsx", skip = 1)
+Q12014 <- read_excel("Quarterly/02_01_1_trim_2014.xls", skip = 1)
 colnames(Q12014)[1] <- "Entidad.federativa"
-colnames(Q12014)[2] <- "Saldo.total"
+colnames(Q12014)[7] <- "Saldo.total"
 
 Q1_2014 <- Q12014 %>%
   slice(1:(n() - 4)) %>%                # Remove the last 4 rows
@@ -651,55 +2521,53 @@ Q1_2014 <- Q12014 %>%
   rename(EntidadFed = `Entidad.federativa`) %>% # Rename "Entidad.federativa" to "EntidadFed"
   select(EntidadFed, `1Q2014`) %>%      # Select only the desired columns
   drop_na()                             # Remove rows where any column has NA
-                          # Remove rows where any column has NA
 Q1_2014$id <- seq_len(nrow(Q1_2014))
+print(Q1_2014rows <- nrow(Q1_2014))
 
 
-Q22014 <- read_excel("Quarterly/02_04_2_trim_2014.xlsx", skip = 1)
+
+Q22014 <- read_excel("Quarterly/02_01_2_trim_2014.xls", skip = 1)
 colnames(Q22014)[1] <- "Entidad.federativa"
-colnames(Q22014)[2] <- "Saldo.total"
-
+colnames(Q22014)[6] <- "Saldo.total"
 Q2_2014 <- Q22014 %>%
   slice(1:(n() - 4)) %>%                # Remove the last 4 rows
   rename(`2Q2014` = `Saldo.total`) %>%  # Rename "Saldo.total" to "1Q2018"
   rename(EntidadFed = `Entidad.federativa`) %>% # Rename "Entidad.federativa" to "EntidadFed"
   select(EntidadFed, `2Q2014`) %>%      # Select only the desired columns
   drop_na()                             # Remove rows where any column has NA
-                          # Remove rows where any column has NA
 Q2_2014$id <- seq_len(nrow(Q2_2014))
+print(Q2_2014rows <- nrow(Q2_2014))
 
 
-Q32014 <- read_excel("Quarterly/02_04_3_trim_2014.xlsx", skip = 1)
-colnames(Q32014)[1] <- "Entidad.federativa"
-colnames(Q32014)[2] <- "Saldo.total"
+#Q32014 <- read_excel("Quarterly/02_01_3_trim_2014.xlsx", skip = 1)
+#colnames(Q32014)[1] <- "Entidad.federativa"
+#colnames(Q32014)[2] <- "Saldo.total"
 
-Q3_2014 <- Q32014 %>%
-  slice(1:(n() - 4)) %>%                # Remove the last 4 rows
-  rename(`3Q2014` = `Saldo.total`) %>%  # Rename "Saldo.total" to "1Q2018"
-  rename(EntidadFed = `Entidad.federativa`) %>% # Rename "Entidad.federativa" to "EntidadFed"
-  select(EntidadFed, `3Q2014`) %>%      # Select only the desired columns
-  drop_na()                             # Remove rows where any column has NA
+#Q3_2014 <- Q32014 %>%
+#  slice(1:(n() - 4)) %>%                # Remove the last 4 rows
+#  rename(`3Q2014` = `Saldo.total`) %>%  # Rename "Saldo.total" to "1Q2018"
+#  rename(EntidadFed = `Entidad.federativa`) %>% # Rename "Entidad.federativa" to "EntidadFed"
+#  select(EntidadFed, `3Q2014`) %>%      # Select only the desired columns
+#  drop_na()                             # Remove rows where any column has NA
                           # Remove rows where any column has NA
-Q3_2014$id <- seq_len(nrow(Q3_2014))
+#Q3_2014$id <- seq_len(nrow(Q3_2014))
 
 
-Q42014 <- read_excel("Quarterly/02_04_4_trim_2014.xlsx", skip = 1)
-colnames(Q42014)[1] <- "Entidad.federativa"
-colnames(Q42014)[2] <- "Saldo.total"
+#Q42014 <- read_excel("Quarterly/02_01_4_trim_2014.xlsx", skip = 1)
+#colnames(Q42014)[1] <- "Entidad.federativa"
+#colnames(Q42014)[2] <- "Saldo.total"
 
-Q4_2014 <- Q42014 %>%
-  slice(1:(n() - 4)) %>%                # Remove the last 4 rows
-  rename(`4Q2014` = `Saldo.total`) %>%  # Rename "Saldo.total" to "1Q2018"
-  rename(EntidadFed = `Entidad.federativa`) %>% # Rename "Entidad.federativa" to "EntidadFed"
-  select(EntidadFed, `4Q2014`) %>%      # Select only the desired columns
-  drop_na()                             # Remove rows where any column has NA
+#Q4_2014 <- Q42014 %>%
+#  slice(1:(n() - 4)) %>%                # Remove the last 4 rows
+#  rename(`4Q2014` = `Saldo.total`) %>%  # Rename "Saldo.total" to "1Q2018"
+#  rename(EntidadFed = `Entidad.federativa`) %>% # Rename "Entidad.federativa" to "EntidadFed"
+#  select(EntidadFed, `4Q2014`) %>%      # Select only the desired columns
+#  drop_na()                             # Remove rows where any column has NA
                           # Remove rows where any column has NA
-Q4_2014$id <- seq_len(nrow(Q4_2014))
+#Q4_2014$id <- seq_len(nrow(Q4_2014))
 
 merged_data_2014 <- Q1_2014 %>%
-  left_join(Q2_2014, by = "id") %>%
-  left_join(Q3_2014, by = "id") %>%
-  left_join(Q4_2014, by = "id")
+  left_join(Q2_2014, by = "id") 
 
 merged_data_2014  <- merged_data_2014 %>%
   select(-EntidadFed.y, -EntidadFed.x.x, -EntidadFed.y.y)
@@ -710,64 +2578,277 @@ merged_data_2014  <- merged_data_2014 %>%
 
 
 ```{r get data 2013 , echo=FALSE}
-############################ 2013 ############################    
-
+####################################################### 2013 ####################################################### 
 library(tidyr)
 
-Q12013 <- read_excel("Quarterly/02_04_1_trim_2013.xlsx", skip = 1)
-colnames(Q12013)[1] <- "Entidad.federativa"
-colnames(Q12013)[2] <- "Saldo.total"
 
-Q1_2013 <- Q12013 %>%
+############################ Q12013 ############################    
+
+# Municipios 
+
+Q12013 <- read_excel("Quarterly/02_01_1_trim_2013.xls", skip = 1)
+colnames(Q12013)[1] <- "Entidad.federativa"
+colnames(Q12013)[7] <- "Saldo.total"
+Q1_2013_M <- Q12013 %>%
   slice(1:(n() - 4)) %>%                # Remove the last 4 rows
   rename(`1Q2013` = `Saldo.total`) %>%  # Rename "Saldo.total" to "1Q2018"
   rename(EntidadFed = `Entidad.federativa`) %>% # Rename "Entidad.federativa" to "EntidadFed"
   select(EntidadFed, `1Q2013`) %>%      # Select only the desired columns
   drop_na()                             # Remove rows where any column has NA
-                          # Remove rows where any column has NA
-Q1_2013$id <- seq_len(nrow(Q1_2013))
+Q1_2013_M$id <- seq_len(nrow(Q1_2013_M))
+print(Q1_2013rows <- nrow(Q1_2013_M))
 
 
-Q22013 <- read_excel("Quarterly/02_04_2_trim_2013.xlsx", skip = 1)
+# Estados
+Q1_2013_E <- Q12013 %>%
+  slice(1:(n() - 4)) %>%                # Remove the last 4 rows
+  rename(`1Q2013` = `Saldo.total`,      # Rename "Saldo.total" to "1Q2012"
+         EntidadFed = `Entidad.federativa`) %>%  # Rename "Entidad.federativa" to "EntidadFed"
+  mutate(EntidadFed = toupper(EntidadFed)) %>%   # Convert EntidadFed to uppercase
+  mutate(EntidadFed = stri_trans_general(EntidadFed, "Latin-ASCII"))  %>%   # 
+  select(EntidadFed, `1Q2013`) %>%      # Select only the desired columns
+  drop_na() %>%
+  group_by(EntidadFed) %>%
+  mutate(ESTADO = if_else(`1Q2013` == max(`1Q2013`), 1, 0)) %>%
+  ungroup()
+Q1_2013_E$id <- seq_len(nrow(Q1_2013_E))
+print(Q1_2013_Erows <- nrow(Q1_2013_E))
+
+
+#Data for Municipios and Estados
+municipios_data <- read_excel("Quarterly/MUNICIPIOS_202408.xlsx")
+municipios_data <- municipios_data %>%
+  mutate(MUNICIPIO = stri_trans_general(MUNICIPIO, "Latin-ASCII"))
+estados_data <- read.csv("Quarterly/estados.csv", stringsAsFactors = FALSE)
+estados_data <- estados_data %>%
+  select('Nombre_Mayuscula') %>%
+  rename(`ESTADO` = `Nombre_Mayuscula`)
+
+merged_data <- inner_join(municipios_data, Q1_2013_E, by = c("MUNICIPIO" = "EntidadFed"))
+
+#Matching Municipio and Estado with the same name
+
+merged_data <- merged_data %>%
+  mutate(Matching_Mun_State = ifelse(MUNICIPIO %in% estados_data$ESTADO, 1, 0))
+filtered_data <- merged_data %>%
+  filter(Matching_Mun_State == 1)
+
+#Make the debt data as numeric
+filtered_data$`1Q2013` <- as.numeric(filtered_data$`1Q2013`)
+
+#Filter for rows with the maximum '1Q2012' value within each 'MUNICIPIO'
+
+Estados_1Q2013 <- filtered_data %>%
+  group_by(MUNICIPIO) %>%
+  filter(`1Q2013` == max(`1Q2013`, na.rm = TRUE)) %>%
+  filter(!duplicated(MUNICIPIO)) %>%
+  select('MUNICIPIO', '1Q2013') %>%
+  ungroup()
+
+
+
+############################ Q22013 ############################    
+
+# Municipios 
+Q22013 <- read_excel("Quarterly/02_01_2_trim_2013.xls", skip = 1)
 colnames(Q22013)[1] <- "Entidad.federativa"
-colnames(Q22013)[2] <- "Saldo.total"
-
-Q2_2013 <- Q22013 %>%
+colnames(Q22013)[7] <- "Saldo.total"
+Q2_2013_M <- Q22013 %>%
   slice(1:(n() - 4)) %>%                # Remove the last 4 rows
   rename(`2Q2013` = `Saldo.total`) %>%  # Rename "Saldo.total" to "1Q2018"
   rename(EntidadFed = `Entidad.federativa`) %>% # Rename "Entidad.federativa" to "EntidadFed"
   select(EntidadFed, `2Q2013`) %>%      # Select only the desired columns
   drop_na()                             # Remove rows where any column has NA
-                          # Remove rows where any column has NA
-Q2_2013$id <- seq_len(nrow(Q2_2013))
+Q2_2013_M$id <- seq_len(nrow(Q2_2013_M))
+print(Q2_2013rows <- nrow(Q2_2013_M))
 
 
-Q32013 <- read_excel("Quarterly/02_04_3_trim_2013.xlsx", skip = 1)
+# Estados
+Q2_2013_E <- Q22013 %>%
+  slice(1:(n() - 4)) %>%                # Remove the last 4 rows
+  rename(`2Q2013` = `Saldo.total`,      # Rename "Saldo.total" to "1Q2012"
+         EntidadFed = `Entidad.federativa`) %>%  # Rename "Entidad.federativa" to "EntidadFed"
+  mutate(EntidadFed = toupper(EntidadFed)) %>%   # Convert EntidadFed to uppercase
+  mutate(EntidadFed = stri_trans_general(EntidadFed, "Latin-ASCII"))  %>%   # 
+  select(EntidadFed, `2Q2013`) %>%      # Select only the desired columns
+  drop_na() %>%
+  group_by(EntidadFed) %>%
+  mutate(ESTADO = if_else(`2Q2013` == max(`2Q2013`), 1, 0)) %>%
+  ungroup()
+Q2_2013_E$id <- seq_len(nrow(Q2_2013_E))
+print(Q2_2013_Erows <- nrow(Q2_2013_E))
+
+
+#Data for Municipios and Estados
+municipios_data <- read_excel("Quarterly/MUNICIPIOS_202408.xlsx")
+municipios_data <- municipios_data %>%
+  mutate(MUNICIPIO = stri_trans_general(MUNICIPIO, "Latin-ASCII"))
+estados_data <- read.csv("Quarterly/estados.csv", stringsAsFactors = FALSE)
+estados_data <- estados_data %>%
+  select('Nombre_Mayuscula') %>%
+  rename(`ESTADO` = `Nombre_Mayuscula`)
+
+merged_data <- inner_join(municipios_data, Q2_2013_E, by = c("MUNICIPIO" = "EntidadFed"))
+
+#Matching Municipio and Estado with the same name
+
+merged_data <- merged_data %>%
+  mutate(Matching_Mun_State = ifelse(MUNICIPIO %in% estados_data$ESTADO, 1, 0))
+filtered_data <- merged_data %>%
+  filter(Matching_Mun_State == 1)
+
+#Make the debt data as numeric
+filtered_data$`2Q2013` <- as.numeric(filtered_data$`2Q2013`)
+
+#Filter for rows with the maximum '1Q2012' value within each 'MUNICIPIO'
+
+Estados_2Q2013 <- filtered_data %>%
+  group_by(MUNICIPIO) %>%
+  filter(`2Q2013` == max(`2Q2013`, na.rm = TRUE)) %>%
+  filter(!duplicated(MUNICIPIO)) %>%
+  select('MUNICIPIO', '2Q2013') %>%
+  ungroup()
+
+
+############################ Q32013 ############################    
+
+# Municipios 
+Q32013 <- read_excel("Quarterly/02_01_3_trim_2013.xls", skip = 1)
 colnames(Q32013)[1] <- "Entidad.federativa"
-colnames(Q32013)[2] <- "Saldo.total"
-
-Q3_2013 <- Q32013 %>%
+colnames(Q32013)[7] <- "Saldo.total"
+Q3_2013_M <- Q32013 %>%
   slice(1:(n() - 4)) %>%                # Remove the last 4 rows
   rename(`3Q2013` = `Saldo.total`) %>%  # Rename "Saldo.total" to "1Q2018"
   rename(EntidadFed = `Entidad.federativa`) %>% # Rename "Entidad.federativa" to "EntidadFed"
   select(EntidadFed, `3Q2013`) %>%      # Select only the desired columns
   drop_na()                             # Remove rows where any column has NA
-                          # Remove rows where any column has NA
-Q3_2013$id <- seq_len(nrow(Q3_2013))
+Q3_2013_M$id <- seq_len(nrow(Q3_2013_M))
+print(Q3_2013rows <- nrow(Q3_2013_M))
 
 
-Q42013 <- read_excel("Quarterly/02_04_4_trim_2013.xlsx", skip = 1)
+# Estados
+Q3_2013_E <- Q32013 %>%
+  slice(1:(n() - 4)) %>%                # Remove the last 4 rows
+  rename(`3Q2013` = `Saldo.total`,      # Rename "Saldo.total" to "1Q2012"
+         EntidadFed = `Entidad.federativa`) %>%  # Rename "Entidad.federativa" to "EntidadFed"
+  mutate(EntidadFed = toupper(EntidadFed)) %>%   # Convert EntidadFed to uppercase
+  mutate(EntidadFed = stri_trans_general(EntidadFed, "Latin-ASCII"))  %>%   # 
+  select(EntidadFed, `3Q2013`) %>%      # Select only the desired columns
+  drop_na() %>%
+  group_by(EntidadFed) %>%
+  mutate(ESTADO = if_else(`3Q2013` == max(`3Q2013`), 1, 0)) %>%
+  ungroup()
+Q3_2013_E$id <- seq_len(nrow(Q3_2013_E))
+print(Q3_2013_Erows <- nrow(Q3_2013_E))
+
+
+#Data for Municipios and Estados
+municipios_data <- read_excel("Quarterly/MUNICIPIOS_202408.xlsx")
+municipios_data <- municipios_data %>%
+  mutate(MUNICIPIO = stri_trans_general(MUNICIPIO, "Latin-ASCII"))
+estados_data <- read.csv("Quarterly/estados.csv", stringsAsFactors = FALSE)
+estados_data <- estados_data %>%
+  select('Nombre_Mayuscula') %>%
+  rename(`ESTADO` = `Nombre_Mayuscula`)
+
+
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+## Checar: Veracruz de Ignacio de la Llave !!!!!!!!!!! ##
+
+
+merged_data <- inner_join(municipios_data, Q3_2013_E, by = c("MUNICIPIO" = "EntidadFed"))
+
+#Matching Municipio and Estado with the same name
+
+merged_data <- merged_data %>%
+  mutate(Matching_Mun_State = ifelse(MUNICIPIO %in% estados_data$ESTADO, 1, 0))
+filtered_data <- merged_data %>%
+  filter(Matching_Mun_State == 1)
+
+#Make the debt data as numeric
+filtered_data$`3Q2013` <- as.numeric(filtered_data$`3Q2013`)
+
+#Filter for rows with the maximum '1Q2012' value within each 'MUNICIPIO'
+
+Estados_3Q2013 <- filtered_data %>%
+  group_by(MUNICIPIO) %>%
+  filter(`3Q2013` == max(`3Q2013`, na.rm = TRUE)) %>%
+  filter(!duplicated(MUNICIPIO)) %>%
+  select('MUNICIPIO', '3Q2013') %>%
+  ungroup()
+
+
+
+
+############################ Q42013 ############################    
+
+# Municipios 
+Q42013 <- read_excel("Quarterly/02_01_4_trim_2013.xls", skip = 1)
 colnames(Q42013)[1] <- "Entidad.federativa"
-colnames(Q42013)[2] <- "Saldo.total"
+colnames(Q42013)[7] <- "Saldo.total"
 
-Q4_2013 <- Q42013 %>%
+Q4_2013_M<- Q42013 %>%
   slice(1:(n() - 4)) %>%                # Remove the last 4 rows
   rename(`4Q2013` = `Saldo.total`) %>%  # Rename "Saldo.total" to "1Q2018"
   rename(EntidadFed = `Entidad.federativa`) %>% # Rename "Entidad.federativa" to "EntidadFed"
   select(EntidadFed, `4Q2013`) %>%      # Select only the desired columns
   drop_na()                             # Remove rows where any column has NA
-                          # Remove rows where any column has NA
-Q4_2013$id <- seq_len(nrow(Q4_2013))
+Q4_2013_M$id <- seq_len(nrow(Q4_2013_M))
+print(Q4_2013_Mrows <- nrow(Q4_2013_M))
+
+
+
+# Estados
+Q4_2013_E <- Q42013 %>%
+  slice(1:(n() - 4)) %>%                # Remove the last 4 rows
+  rename(`4Q2013` = `Saldo.total`,      # Rename "Saldo.total" to "1Q2012"
+         EntidadFed = `Entidad.federativa`) %>%  # Rename "Entidad.federativa" to "EntidadFed"
+  mutate(EntidadFed = toupper(EntidadFed)) %>%   # Convert EntidadFed to uppercase
+  mutate(EntidadFed = stri_trans_general(EntidadFed, "Latin-ASCII"))  %>%   # 
+  select(EntidadFed, `4Q2013`) %>%      # Select only the desired columns
+  drop_na() %>%
+  group_by(EntidadFed) %>%
+  mutate(ESTADO = if_else(`4Q2013` == max(`4Q2013`), 1, 0)) %>%
+  ungroup()
+Q4_2013_E$id <- seq_len(nrow(Q4_2013_E))
+print(Q4_2013_Erows <- nrow(Q4_2013_E))
+
+
+#Data for Municipios and Estados
+municipios_data <- read_excel("Quarterly/MUNICIPIOS_202408.xlsx")
+municipios_data <- municipios_data %>%
+  mutate(MUNICIPIO = stri_trans_general(MUNICIPIO, "Latin-ASCII"))
+estados_data <- read.csv("Quarterly/estados.csv", stringsAsFactors = FALSE)
+estados_data <- estados_data %>%
+  select('Nombre_Mayuscula') %>%
+  rename(`ESTADO` = `Nombre_Mayuscula`)
+
+
+merged_data <- inner_join(municipios_data, Q4_2013_E, by = c("MUNICIPIO" = "EntidadFed"))
+
+#Matching Municipio and Estado with the same name
+
+merged_data <- merged_data %>%
+  mutate(Matching_Mun_State = ifelse(MUNICIPIO %in% estados_data$ESTADO, 1, 0))
+filtered_data <- merged_data %>%
+  filter(Matching_Mun_State == 1)
+
+#Make the debt data as numeric
+filtered_data$`4Q2013` <- as.numeric(filtered_data$`4Q2013`)
+
+#Filter for rows with the maximum '1Q2012' value within each 'MUNICIPIO'
+
+Estados_4Q2013 <- filtered_data %>%
+  group_by(MUNICIPIO) %>%
+  filter(`4Q2013` == max(`4Q2013`, na.rm = TRUE)) %>%
+  filter(!duplicated(MUNICIPIO)) %>%
+  select('MUNICIPIO', '4Q2013') %>%
+  ungroup()
+
+
+
 
 merged_data_2013 <- Q1_2013 %>%
   left_join(Q2_2013, by = "id") %>%
@@ -782,65 +2863,267 @@ merged_data_2013  <- merged_data_2013 %>%
 
 
 
-```{r get data 2012 , echo=FALSE}
-############################ 2012 ############################    
+```{r get data 2012_1 , echo=FALSE}
+
+####################################################### 2012 ####################################################### 
+
 
 library(tidyr)
+library(stringi)
 
-Q12012 <- read_excel("Quarterly/02_04_1_trim_2012.xlsx", skip = 1)
+############################ Q12012 ############################    
+
+
+Q12012 <- read_excel("Quarterly/02_01_1_trim_2012.xls", skip = 1)
 colnames(Q12012)[1] <- "Entidad.federativa"
-colnames(Q12012)[2] <- "Saldo.total"
+colnames(Q12012)[7] <- "Saldo.total"
 
-Q1_2012 <- Q12012 %>%
+Q1_2012_M <- Q12012 %>%
   slice(1:(n() - 4)) %>%                # Remove the last 4 rows
-  rename(`1Q2012` = `Saldo.total`) %>%  # Rename "Saldo.total" to "1Q2018"
-  rename(EntidadFed = `Entidad.federativa`) %>% # Rename "Entidad.federativa" to "EntidadFed"
+  rename(`1Q2012` = `Saldo.total`,      # Rename "Saldo.total" to "1Q2012"
+         EntidadFed = `Entidad.federativa`) %>%  # Rename "Entidad.federativa" to "EntidadFed"
+  mutate(EntidadFed = toupper(EntidadFed)) %>%   # Convert EntidadFed to uppercase
+  mutate(EntidadFed = stri_trans_general(EntidadFed, "Latin-ASCII"))  %>%   # 
   select(EntidadFed, `1Q2012`) %>%      # Select only the desired columns
-  drop_na()                             # Remove rows where any column has NA
-                          # Remove rows where any column has NA
-Q1_2012$id <- seq_len(nrow(Q1_2012))
+  drop_na() %>%
+  group_by(EntidadFed) %>%
+  mutate(ESTADO = if_else(`1Q2012` == max(`1Q2012`), 1, 0)) %>%
+  ungroup()
+Q1_2012_M$id <- seq_len(nrow(Q1_2012_M))
+print(Q1_2012rows <- nrow(Q1_2012_M))
 
 
-Q22012 <- read_excel("Quarterly/02_04_2_trim_2012.xlsx", skip = 1)
+#Data for Municipios and Estados
+municipios_data <- read_excel("Quarterly/MUNICIPIOS_202408.xlsx")
+municipios_data <- municipios_data %>%
+  mutate(MUNICIPIO = stri_trans_general(MUNICIPIO, "Latin-ASCII"))
+estados_data <- read.csv("Quarterly/estados.csv", stringsAsFactors = FALSE)
+estados_data <- estados_data %>%
+  select('Nombre_Mayuscula') %>%
+  rename(`ESTADO` = `Nombre_Mayuscula`)
+
+
+merged_data <- inner_join(municipios_data, Q1_2012, by = c("MUNICIPIO" = "EntidadFed"))
+
+#Matching Municipio and Estado with the same name
+
+merged_data <- merged_data %>%
+  mutate(Matching_Mun_State = ifelse(MUNICIPIO %in% estados_data$ESTADO, 1, 0))
+filtered_data <- merged_data %>%
+  filter(Matching_Mun_State == 1)
+
+#Make the debt data as numeric
+filtered_data$`1Q2012` <- as.numeric(filtered_data$`1Q2012`)
+
+#Filter for rows with the maximum '1Q2012' value within each 'MUNICIPIO'
+
+Estados_1Q2012<- filtered_data %>%
+  group_by(MUNICIPIO) %>%
+  filter(`1Q2012` == max(`1Q2012`, na.rm = TRUE)) %>%
+  filter(!duplicated(MUNICIPIO)) %>%
+  select('MUNICIPIO', '1Q2012') %>%
+  ungroup()
+
+
+
+
+```
+
+```{r get data 2012 , echo=FALSE}
+
+############################ Q22012 ############################    
+
+# Municipios
+Q22012 <- read_excel("Quarterly/02_01_2_trim_2012.xls", skip = 1)
 colnames(Q22012)[1] <- "Entidad.federativa"
 colnames(Q22012)[2] <- "Saldo.total"
-
-Q2_2012 <- Q22012 %>%
+Q2_2012_M <- Q22012 %>%
   slice(1:(n() - 4)) %>%                # Remove the last 4 rows
   rename(`2Q2012` = `Saldo.total`) %>%  # Rename "Saldo.total" to "1Q2018"
   rename(EntidadFed = `Entidad.federativa`) %>% # Rename "Entidad.federativa" to "EntidadFed"
   select(EntidadFed, `2Q2012`) %>%      # Select only the desired columns
   drop_na()                             # Remove rows where any column has NA
-                          # Remove rows where any column has NA
-Q2_2012$id <- seq_len(nrow(Q2_2012))
+Q2_2012_M$id <- seq_len(nrow(Q2_2012_M))
+print(Q2_2012rows <- nrow(Q2_2012_M))
 
 
-Q32012 <- read_excel("Quarterly/02_04_3_trim_2012.xlsx", skip = 1)
+# Estados
+Q2_2012_E <- Q22012 %>%
+  slice(1:(n() - 4)) %>%                # Remove the last 4 rows
+  rename(`2Q2012` = `Saldo.total`,      # Rename "Saldo.total" to "1Q2012"
+         EntidadFed = `Entidad.federativa`) %>%  # Rename "Entidad.federativa" to "EntidadFed"
+  mutate(EntidadFed = toupper(EntidadFed)) %>%   # Convert EntidadFed to uppercase
+  mutate(EntidadFed = stri_trans_general(EntidadFed, "Latin-ASCII"))  %>%   # 
+  select(EntidadFed, `2Q2012`) %>%      # Select only the desired columns
+  drop_na() %>%
+  group_by(EntidadFed) %>%
+  mutate(ESTADO = if_else(`2Q2012` == max(`2Q2012`), 1, 0)) %>%
+  ungroup()
+Q2_2012_E$id <- seq_len(nrow(Q2_2012_E))
+print(Q2_2012_Erows <- nrow(Q2_2012_E))
+
+
+#Data for Municipios and Estados
+municipios_data <- read_excel("Quarterly/MUNICIPIOS_202408.xlsx")
+municipios_data <- municipios_data %>%
+  mutate(MUNICIPIO = stri_trans_general(MUNICIPIO, "Latin-ASCII"))
+estados_data <- read.csv("Quarterly/estados.csv", stringsAsFactors = FALSE)
+estados_data <- estados_data %>%
+  select('Nombre_Mayuscula') %>%
+  rename(`ESTADO` = `Nombre_Mayuscula`)
+
+merged_data <- inner_join(municipios_data, Q2_2012_E, by = c("MUNICIPIO" = "EntidadFed"))
+
+#Matching Municipio and Estado with the same name
+
+merged_data <- merged_data %>%
+  mutate(Matching_Mun_State = ifelse(MUNICIPIO %in% estados_data$ESTADO, 1, 0))
+filtered_data <- merged_data %>%
+  filter(Matching_Mun_State == 1)
+
+#Make the debt data as numeric
+filtered_data$`2Q2012` <- as.numeric(filtered_data$`2Q2012`)
+
+#Filter for rows with the maximum '1Q2012' value within each 'MUNICIPIO'
+
+Estados_2Q2012 <- filtered_data %>%
+  group_by(MUNICIPIO) %>%
+  filter(`2Q2012` == max(`2Q2012`, na.rm = TRUE)) %>%
+  filter(!duplicated(MUNICIPIO)) %>%
+  select('MUNICIPIO', '2Q2012') %>%
+  ungroup()
+
+
+############################ Q32012 ############################    
+
+# Municipios
+
+Q32012 <- read_excel("Quarterly/02_01_3_trim_2012.xls", skip = 1)
 colnames(Q32012)[1] <- "Entidad.federativa"
 colnames(Q32012)[2] <- "Saldo.total"
-
-Q3_2012 <- Q32012 %>%
+Q3_2012_M <- Q32012 %>%
   slice(1:(n() - 4)) %>%                # Remove the last 4 rows
   rename(`3Q2012` = `Saldo.total`) %>%  # Rename "Saldo.total" to "1Q2018"
   rename(EntidadFed = `Entidad.federativa`) %>% # Rename "Entidad.federativa" to "EntidadFed"
   select(EntidadFed, `3Q2012`) %>%      # Select only the desired columns
   drop_na()                             # Remove rows where any column has NA
-                          # Remove rows where any column has NA
-Q3_2012$id <- seq_len(nrow(Q3_2012))
+Q3_2012_M$id <- seq_len(nrow(Q3_2012_M))
+print(Q3_2012rows <- nrow(Q3_2012_M))
 
 
-Q42012 <- read_excel("Quarterly/02_04_4_trim_2012.xlsx", skip = 1)
+
+# Estados
+Q3_2012_E <- Q32012 %>%
+  slice(1:(n() - 4)) %>%                # Remove the last 4 rows
+  rename(`3Q2012` = `Saldo.total`,      # Rename "Saldo.total" to "1Q2012"
+         EntidadFed = `Entidad.federativa`) %>%  # Rename "Entidad.federativa" to "EntidadFed"
+  mutate(EntidadFed = toupper(EntidadFed)) %>%   # Convert EntidadFed to uppercase
+  mutate(EntidadFed = stri_trans_general(EntidadFed, "Latin-ASCII"))  %>%   # 
+  select(EntidadFed, `3Q2012`) %>%      # Select only the desired columns
+  drop_na() %>%
+  group_by(EntidadFed) %>%
+  mutate(ESTADO = if_else(`3Q2012` == max(`3Q2012`), 1, 0)) %>%
+  ungroup()
+Q3_2012_E$id <- seq_len(nrow(Q3_2012_E))
+print(Q3_2012_Erows <- nrow(Q3_2012_E))
+
+
+#Data for Municipios and Estados
+municipios_data <- read_excel("Quarterly/MUNICIPIOS_202408.xlsx")
+municipios_data <- municipios_data %>%
+  mutate(MUNICIPIO = stri_trans_general(MUNICIPIO, "Latin-ASCII"))
+estados_data <- read.csv("Quarterly/estados.csv", stringsAsFactors = FALSE)
+estados_data <- estados_data %>%
+  select('Nombre_Mayuscula') %>%
+  rename(`ESTADO` = `Nombre_Mayuscula`)
+
+merged_data <- inner_join(municipios_data, Q3_2012_E, by = c("MUNICIPIO" = "EntidadFed"))
+
+#Matching Municipio and Estado with the same name
+
+merged_data <- merged_data %>%
+  mutate(Matching_Mun_State = ifelse(MUNICIPIO %in% estados_data$ESTADO, 1, 0))
+filtered_data <- merged_data %>%
+  filter(Matching_Mun_State == 1)
+
+#Make the debt data as numeric
+filtered_data$`3Q2012` <- as.numeric(filtered_data$`3Q2012`)
+
+#Filter for rows with the maximum '1Q2012' value within each 'MUNICIPIO'
+
+Estados_3Q2012 <- filtered_data %>%
+  group_by(MUNICIPIO) %>%
+  filter(`3Q2012` == max(`3Q2012`, na.rm = TRUE)) %>%
+  filter(!duplicated(MUNICIPIO)) %>%
+  select('MUNICIPIO', '3Q2012') %>%
+  ungroup()
+
+
+############################ Q42012 ############################ 
+
+#Municipios
+Q42012 <- read_excel("Quarterly/02_01_4_trim_2012.xls", skip = 1)
 colnames(Q42012)[1] <- "Entidad.federativa"
 colnames(Q42012)[2] <- "Saldo.total"
-
-Q4_2012 <- Q42012 %>%
+Q4_2012_M <- Q42012 %>%
   slice(1:(n() - 4)) %>%                # Remove the last 4 rows
   rename(`4Q2012` = `Saldo.total`) %>%  # Rename "Saldo.total" to "1Q2018"
   rename(EntidadFed = `Entidad.federativa`) %>% # Rename "Entidad.federativa" to "EntidadFed"
   select(EntidadFed, `4Q2012`) %>%      # Select only the desired columns
   drop_na()                             # Remove rows where any column has NA
-                          # Remove rows where any column has NA
-Q4_2012$id <- seq_len(nrow(Q4_2012))
+Q4_2012_M$id <- seq_len(nrow(Q4_2012_M))
+print(Q4_2012rows <- nrow(Q4_2012_M))
+
+
+# Estados
+Q4_2012_E <- Q42012 %>%
+  slice(1:(n() - 4)) %>%                # Remove the last 4 rows
+  rename(`4Q2012` = `Saldo.total`,      # Rename "Saldo.total" to "1Q2012"
+         EntidadFed = `Entidad.federativa`) %>%  # Rename "Entidad.federativa" to "EntidadFed"
+  mutate(EntidadFed = toupper(EntidadFed)) %>%   # Convert EntidadFed to uppercase
+  mutate(EntidadFed = stri_trans_general(EntidadFed, "Latin-ASCII"))  %>%   # 
+  select(EntidadFed, `4Q2012`) %>%      # Select only the desired columns
+  drop_na() %>%
+  group_by(EntidadFed) %>%
+  mutate(ESTADO = if_else(`4Q2012` == max(`4Q2012`), 1, 0)) %>%
+  ungroup()
+Q4_2012_E$id <- seq_len(nrow(Q4_2012_E))
+print(Q4_2012_Erows <- nrow(Q4_2012_E))
+
+
+#Data for Municipios and Estados
+municipios_data <- read_excel("Quarterly/MUNICIPIOS_202408.xlsx")
+municipios_data <- municipios_data %>%
+  mutate(MUNICIPIO = stri_trans_general(MUNICIPIO, "Latin-ASCII"))
+estados_data <- read.csv("Quarterly/estados.csv", stringsAsFactors = FALSE)
+estados_data <- estados_data %>%
+  select('Nombre_Mayuscula') %>%
+  rename(`ESTADO` = `Nombre_Mayuscula`)
+
+merged_data <- inner_join(municipios_data, Q4_2012_E, by = c("MUNICIPIO" = "EntidadFed"))
+
+#Matching Municipio and Estado with the same name
+
+merged_data <- merged_data %>%
+  mutate(Matching_Mun_State = ifelse(MUNICIPIO %in% estados_data$ESTADO, 1, 0))
+filtered_data <- merged_data %>%
+  filter(Matching_Mun_State == 1)
+
+#Make the debt data as numeric
+filtered_data$`4Q2012` <- as.numeric(filtered_data$`4Q2012`)
+
+#Filter for rows with the maximum '1Q2012' value within each 'MUNICIPIO'
+
+Estados_4Q2012 <- filtered_data %>%
+  group_by(MUNICIPIO) %>%
+  filter(`4Q2012` == max(`4Q2012`, na.rm = TRUE)) %>%
+  filter(!duplicated(MUNICIPIO)) %>%
+  select('MUNICIPIO', '4Q2012') %>%
+  ungroup()
+
+
+
+
 
 merged_data_2012 <- Q1_2012 %>%
   left_join(Q2_2012, by = "id") %>%
@@ -854,64 +3137,268 @@ merged_data_2012  <- merged_data_2012 %>%
 
 
 ```{r get data 2011 , echo=FALSE}
-############################ 2011 ############################    
+
+####################################################### 2011 ####################################################### 
+
 
 library(tidyr)
+library(stringi)
 
-Q12011 <- read_excel("Quarterly/02_04_1_trim_201.xlsx", skip = 1)
+############################ Q12011 ############################    
+
+
+Q12011 <- read_excel("Quarterly/02_01_1_trim_2011.xlsx", skip = 1)
 colnames(Q12011)[1] <- "Entidad.federativa"
 colnames(Q12011)[2] <- "Saldo.total"
-
-Q1_2011 <- Q12011 %>%
+Q1_2011_M <- Q12011 %>%
   slice(1:(n() - 4)) %>%                # Remove the last 4 rows
   rename(`1Q2011` = `Saldo.total`) %>%  # Rename "Saldo.total" to "1Q2018"
   rename(EntidadFed = `Entidad.federativa`) %>% # Rename "Entidad.federativa" to "EntidadFed"
   select(EntidadFed, `1Q2011`) %>%      # Select only the desired columns
   drop_na()                             # Remove rows where any column has NA
-                          # Remove rows where any column has NA
-Q1_2011$id <- seq_len(nrow(Q1_2011))
+Q1_2011_M$id <- seq_len(nrow(Q1_2011_M))
+print(Q1_2011rows <- nrow(Q1_2011_M))
 
 
-Q22011 <- read_excel("Quarterly/02_04_2_trim_2011.xlsx", skip = 1)
+# Estados
+Q1_2011_E <- Q12011 %>%
+  slice(1:(n() - 4)) %>%                # Remove the last 4 rows
+  rename(`1Q2011` = `Saldo.total`,      # Rename "Saldo.total" to "1Q2012"
+         EntidadFed = `Entidad.federativa`) %>%  # Rename "Entidad.federativa" to "EntidadFed"
+  mutate(EntidadFed = toupper(EntidadFed)) %>%   # Convert EntidadFed to uppercase
+  mutate(EntidadFed = stri_trans_general(EntidadFed, "Latin-ASCII"))  %>%   # 
+  select(EntidadFed, `1Q2011`) %>%      # Select only the desired columns
+  drop_na() %>%
+  group_by(EntidadFed) %>%
+  mutate(ESTADO = if_else(`1Q2011` == max(`1Q2011`), 1, 0)) %>%
+  ungroup()
+Q1_2011_E$id <- seq_len(nrow(Q1_2011_E))
+print(Q1_2011_Erows <- nrow(Q1_2011_E))
+
+
+#Data for Municipios and Estados
+municipios_data <- read_excel("Quarterly/MUNICIPIOS_202408.xlsx")
+municipios_data <- municipios_data %>%
+  mutate(MUNICIPIO = stri_trans_general(MUNICIPIO, "Latin-ASCII"))
+estados_data <- read.csv("Quarterly/estados.csv", stringsAsFactors = FALSE)
+estados_data <- estados_data %>%
+  select('Nombre_Mayuscula') %>%
+  rename(`ESTADO` = `Nombre_Mayuscula`)
+
+merged_data <- inner_join(municipios_data, Q1_2011_E, by = c("MUNICIPIO" = "EntidadFed"))
+
+#Matching Municipio and Estado with the same name
+
+merged_data <- merged_data %>%
+  mutate(Matching_Mun_State = ifelse(MUNICIPIO %in% estados_data$ESTADO, 1, 0))
+filtered_data <- merged_data %>%
+  filter(Matching_Mun_State == 1)
+
+#Make the debt data as numeric
+filtered_data$`1Q2011` <- as.numeric(filtered_data$`1Q2011`)
+
+#Filter for rows with the maximum '1Q2012' value within each 'MUNICIPIO'
+
+Estados_1Q2011 <- filtered_data %>%
+  group_by(MUNICIPIO) %>%
+  filter(`1Q2011` == max(`1Q2011`, na.rm = TRUE)) %>%
+  filter(!duplicated(MUNICIPIO)) %>%
+  select('MUNICIPIO', '1Q2011') %>%
+  ungroup()
+
+
+############################ Q22011 ############################    
+
+#Municipio
+
+Q22011 <- read_excel("Quarterly/02_01_2_trim_2011.xlsx", skip = 1)
 colnames(Q22011)[1] <- "Entidad.federativa"
 colnames(Q22011)[2] <- "Saldo.total"
-
-Q2_2011 <- Q2201 %>%
+Q2_2011_M <- Q22011 %>%
   slice(1:(n() - 4)) %>%                # Remove the last 4 rows
   rename(`2Q2011` = `Saldo.total`) %>%  # Rename "Saldo.total" to "1Q2018"
   rename(EntidadFed = `Entidad.federativa`) %>% # Rename "Entidad.federativa" to "EntidadFed"
   select(EntidadFed, `2Q2011`) %>%      # Select only the desired columns
   drop_na()                             # Remove rows where any column has NA
-                          # Remove rows where any column has NA
-Q2_2011$id <- seq_len(nrow(Q2_2011))
+Q2_2011_M$id <- seq_len(nrow(Q2_2011_M))
+print(Q2_2011rows <- nrow(Q2_2011_M))
 
 
-Q32011 <- read_excel("Quarterly/02_04_3_trim_2011.xlsx", skip = 1)
+
+# Estados
+Q2_2011_E <- Q22011 %>%
+  slice(1:(n() - 4)) %>%                # Remove the last 4 rows
+  rename(`2Q2011` = `Saldo.total`,      # Rename "Saldo.total" to "1Q2012"
+         EntidadFed = `Entidad.federativa`) %>%  # Rename "Entidad.federativa" to "EntidadFed"
+  mutate(EntidadFed = toupper(EntidadFed)) %>%   # Convert EntidadFed to uppercase
+  mutate(EntidadFed = stri_trans_general(EntidadFed, "Latin-ASCII"))  %>%   # 
+  select(EntidadFed, `2Q2011`) %>%      # Select only the desired columns
+  drop_na() %>%
+  group_by(EntidadFed) %>%
+  mutate(ESTADO = if_else(`2Q2011` == max(`2Q2011`), 1, 0)) %>%
+  ungroup()
+Q2_2011_E$id <- seq_len(nrow(Q2_2011_E))
+print(Q2_2011_Erows <- nrow(Q2_2011_E))
+
+
+#Data for Municipios and Estados
+municipios_data <- read_excel("Quarterly/MUNICIPIOS_202408.xlsx")
+municipios_data <- municipios_data %>%
+  mutate(MUNICIPIO = stri_trans_general(MUNICIPIO, "Latin-ASCII"))
+estados_data <- read.csv("Quarterly/estados.csv", stringsAsFactors = FALSE)
+estados_data <- estados_data %>%
+  select('Nombre_Mayuscula') %>%
+  rename(`ESTADO` = `Nombre_Mayuscula`)
+
+merged_data <- inner_join(municipios_data, Q2_2011_E, by = c("MUNICIPIO" = "EntidadFed"))
+
+#Matching Municipio and Estado with the same name
+
+merged_data <- merged_data %>%
+  mutate(Matching_Mun_State = ifelse(MUNICIPIO %in% estados_data$ESTADO, 1, 0))
+filtered_data <- merged_data %>%
+  filter(Matching_Mun_State == 1)
+
+#Make the debt data as numeric
+filtered_data$`2Q2011` <- as.numeric(filtered_data$`2Q2011`)
+
+#Filter for rows with the maximum '1Q2012' value within each 'MUNICIPIO'
+
+Estados_2Q2011 <- filtered_data %>%
+  group_by(MUNICIPIO) %>%
+  filter(`2Q2011` == max(`2Q2011`, na.rm = TRUE)) %>%
+  filter(!duplicated(MUNICIPIO)) %>%
+  select('MUNICIPIO', '2Q2011') %>%
+  ungroup()
+
+
+############################ Q32011 ############################    
+
+Q32011 <- read_excel("Quarterly/02_01_3_trim_2011.xlsx", skip = 1)
 colnames(Q32011)[1] <- "Entidad.federativa"
 colnames(Q32011)[2] <- "Saldo.total"
-
-Q3_2011 <- Q32011 %>%
+Q3_2011_M <- Q32011 %>%
   slice(1:(n() - 4)) %>%                # Remove the last 4 rows
   rename(`3Q2011` = `Saldo.total`) %>%  # Rename "Saldo.total" to "1Q2018"
   rename(EntidadFed = `Entidad.federativa`) %>% # Rename "Entidad.federativa" to "EntidadFed"
   select(EntidadFed, `3Q2011`) %>%      # Select only the desired columns
   drop_na()                             # Remove rows where any column has NA
-                          # Remove rows where any column has NA
-Q3_2011$id <- seq_len(nrow(Q3_2011))
+Q3_2011_M$id <- seq_len(nrow(Q3_2011_M))
+print(Q3_2011rows <- nrow(Q3_2011_M))
 
 
-Q42011 <- read_excel("Quarterly/02_04_4_trim_2011.xlsx", skip = 1)
+# Estados
+Q3_2011_E <- Q32011 %>%
+  slice(1:(n() - 4)) %>%                # Remove the last 4 rows
+  rename(`3Q2011` = `Saldo.total`,      # Rename "Saldo.total" to "1Q2012"
+         EntidadFed = `Entidad.federativa`) %>%  # Rename "Entidad.federativa" to "EntidadFed"
+  mutate(EntidadFed = toupper(EntidadFed)) %>%   # Convert EntidadFed to uppercase
+  mutate(EntidadFed = stri_trans_general(EntidadFed, "Latin-ASCII"))  %>%   # 
+  select(EntidadFed, `3Q2011`) %>%      # Select only the desired columns
+  drop_na() %>%
+  group_by(EntidadFed) %>%
+  mutate(ESTADO = if_else(`3Q2011` == max(`3Q2011`), 1, 0)) %>%
+  ungroup()
+Q3_2011_E$id <- seq_len(nrow(Q3_2011_E))
+print(Q3_2011_Erows <- nrow(Q3_2011_E))
+
+
+#Data for Municipios and Estados
+municipios_data <- read_excel("Quarterly/MUNICIPIOS_202408.xlsx")
+municipios_data <- municipios_data %>%
+  mutate(MUNICIPIO = stri_trans_general(MUNICIPIO, "Latin-ASCII"))
+estados_data <- read.csv("Quarterly/estados.csv", stringsAsFactors = FALSE)
+estados_data <- estados_data %>%
+  select('Nombre_Mayuscula') %>%
+  rename(`ESTADO` = `Nombre_Mayuscula`)
+
+merged_data <- inner_join(municipios_data, Q3_2011_E, by = c("MUNICIPIO" = "EntidadFed"))
+
+#Matching Municipio and Estado with the same name
+
+merged_data <- merged_data %>%
+  mutate(Matching_Mun_State = ifelse(MUNICIPIO %in% estados_data$ESTADO, 1, 0))
+filtered_data <- merged_data %>%
+  filter(Matching_Mun_State == 1)
+
+#Make the debt data as numeric
+filtered_data$`3Q2011` <- as.numeric(filtered_data$`3Q2011`)
+
+#Filter for rows with the maximum '1Q2012' value within each 'MUNICIPIO'
+
+Estados_3Q2011 <- filtered_data %>%
+  group_by(MUNICIPIO) %>%
+  filter(`3Q2011` == max(`3Q2011`, na.rm = TRUE)) %>%
+  filter(!duplicated(MUNICIPIO)) %>%
+  select('MUNICIPIO', '3Q2011') %>%
+  ungroup()
+
+
+############################ Q42011 ############################    
+
+# Municipios
+
+Q42011 <- read_excel("Quarterly/02_01_4_trim_2011.xls", skip = 1)
 colnames(Q42011)[1] <- "Entidad.federativa"
 colnames(Q42011)[2] <- "Saldo.total"
-
-Q4_2011 <- Q42011 %>%
+Q4_2011_M <- Q42011 %>%
   slice(1:(n() - 4)) %>%                # Remove the last 4 rows
   rename(`4Q2011` = `Saldo.total`) %>%  # Rename "Saldo.total" to "1Q2018"
   rename(EntidadFed = `Entidad.federativa`) %>% # Rename "Entidad.federativa" to "EntidadFed"
   select(EntidadFed, `4Q2011`) %>%      # Select only the desired columns
   drop_na()                             # Remove rows where any column has NA
-                          # Remove rows where any column has NA
-Q4_2011$id <- seq_len(nrow(Q4_2011))
+Q4_2011_M$id <- seq_len(nrow(Q4_2011_M))
+print(Q4_2011rows <- nrow(Q4_2011_M))
+
+
+
+# Estados
+Q4_2011_E <- Q42011 %>%
+  slice(1:(n() - 4)) %>%                # Remove the last 4 rows
+  rename(`4Q2011` = `Saldo.total`,      # Rename "Saldo.total" to "1Q2012"
+         EntidadFed = `Entidad.federativa`) %>%  # Rename "Entidad.federativa" to "EntidadFed"
+  mutate(EntidadFed = toupper(EntidadFed)) %>%   # Convert EntidadFed to uppercase
+  mutate(EntidadFed = stri_trans_general(EntidadFed, "Latin-ASCII"))  %>%   # 
+  select(EntidadFed, `4Q2011`) %>%      # Select only the desired columns
+  drop_na() %>%
+  group_by(EntidadFed) %>%
+  mutate(ESTADO = if_else(`4Q2011` == max(`4Q2011`), 1, 0)) %>%
+  ungroup()
+Q4_2011_E$id <- seq_len(nrow(Q4_2011_E))
+print(Q4_2011_Erows <- nrow(Q4_2011_E))
+
+
+#Data for Municipios and Estados
+municipios_data <- read_excel("Quarterly/MUNICIPIOS_202408.xlsx")
+municipios_data <- municipios_data %>%
+  mutate(MUNICIPIO = stri_trans_general(MUNICIPIO, "Latin-ASCII"))
+estados_data <- read.csv("Quarterly/estados.csv", stringsAsFactors = FALSE)
+estados_data <- estados_data %>%
+  select('Nombre_Mayuscula') %>%
+  rename(`ESTADO` = `Nombre_Mayuscula`)
+
+merged_data <- inner_join(municipios_data, Q4_2011_E, by = c("MUNICIPIO" = "EntidadFed"))
+
+#Matching Municipio and Estado with the same name
+
+merged_data <- merged_data %>%
+  mutate(Matching_Mun_State = ifelse(MUNICIPIO %in% estados_data$ESTADO, 1, 0))
+filtered_data <- merged_data %>%
+  filter(Matching_Mun_State == 1)
+
+#Make the debt data as numeric
+filtered_data$`3Q2011` <- as.numeric(filtered_data$`4Q2011`)
+
+#Filter for rows with the maximum '1Q2012' value within each 'MUNICIPIO'
+
+Estados_4Q2011 <- filtered_data %>%
+  group_by(MUNICIPIO) %>%
+  filter(`4Q2011` == max(`4Q2011`, na.rm = TRUE)) %>%
+  filter(!duplicated(MUNICIPIO)) %>%
+  select('MUNICIPIO', '4Q2011') %>%
+  ungroup()
+
+
 
 merged_data_2011 <- Q1_2011 %>%
   left_join(Q2_2011, by = "id") %>%
@@ -929,7 +3416,7 @@ merged_data_2011  <- merged_data_2011 %>%
 
 library(tidyr)
 
-Q12010 <- read_excel("Quarterly/02_04_1_trim_2010.xlsx", skip = 1)
+Q12010 <- read_excel("Quarterly/02_01_1_trim_2010.xlsx", skip = 1)
 colnames(Q12010)[1] <- "Entidad.federativa"
 colnames(Q12010)[2] <- "Saldo.total"
 
@@ -941,48 +3428,50 @@ Q1_2010 <- Q12010 %>%
   drop_na()                             # Remove rows where any column has NA
                           # Remove rows where any column has NA
 Q1_2010$id <- seq_len(nrow(Q1_2010))
+print(Q1_2010rows <- nrow(Q1_2010))
 
 
-Q22010 <- read_excel("Quarterly/02_04_2_trim_2010.xlsx", skip = 1)
+
+Q22010 <- read_excel("Quarterly/02_01_2_trim_2010.xlsx", skip = 1)
 colnames(Q22010)[1] <- "Entidad.federativa"
 colnames(Q22010)[2] <- "Saldo.total"
-
 Q2_2010 <- Q22010 %>%
   slice(1:(n() - 4)) %>%                # Remove the last 4 rows
   rename(`2Q2010` = `Saldo.total`) %>%  # Rename "Saldo.total" to "1Q2018"
   rename(EntidadFed = `Entidad.federativa`) %>% # Rename "Entidad.federativa" to "EntidadFed"
   select(EntidadFed, `2Q2010`) %>%      # Select only the desired columns
   drop_na()                             # Remove rows where any column has NA
-                          # Remove rows where any column has NA
 Q2_2010$id <- seq_len(nrow(Q2_2010))
+print(Q2_2010rows <- nrow(Q2_2010))
 
 
-Q32010 <- read_excel("Quarterly/02_04_3_trim_2010.xlsx", skip = 1)
+
+Q32010 <- read_excel("Quarterly/02_01_3_trim_2010.xlsx", skip = 1)
 colnames(Q32010)[1] <- "Entidad.federativa"
 colnames(Q32010)[2] <- "Saldo.total"
-
 Q3_2010 <- Q32010 %>%
   slice(1:(n() - 4)) %>%                # Remove the last 4 rows
   rename(`3Q2010` = `Saldo.total`) %>%  # Rename "Saldo.total" to "1Q2018"
   rename(EntidadFed = `Entidad.federativa`) %>% # Rename "Entidad.federativa" to "EntidadFed"
   select(EntidadFed, `3Q2010`) %>%      # Select only the desired columns
   drop_na()                             # Remove rows where any column has NA
-                          # Remove rows where any column has NA
 Q3_2010$id <- seq_len(nrow(Q3_2010))
+print(Q3_2010rows <- nrow(Q3_2010))
 
 
-Q42010 <- read_excel("Quarterly/02_04_4_trim_2010.xlsx", skip = 1)
+
+Q42010 <- read_excel("Quarterly/02_01_4_trim_2010.xlsx", skip = 1)
 colnames(Q42010)[1] <- "Entidad.federativa"
 colnames(Q42010)[2] <- "Saldo.total"
-
 Q4_2010 <- Q42010 %>%
   slice(1:(n() - 4)) %>%                # Remove the last 4 rows
   rename(`4Q2010` = `Saldo.total`) %>%  # Rename "Saldo.total" to "1Q2018"
   rename(EntidadFed = `Entidad.federativa`) %>% # Rename "Entidad.federativa" to "EntidadFed"
   select(EntidadFed, `4Q2010`) %>%      # Select only the desired columns
   drop_na()                             # Remove rows where any column has NA
-                          # Remove rows where any column has NA
 Q4_2010$id <- seq_len(nrow(Q4_2010))
+print(Q4_2010rows <- nrow(Q4_2010))
+
 
 merged_data_2010 <- Q1_2010 %>%
   left_join(Q2_2010, by = "id") %>%
@@ -1000,60 +3489,59 @@ merged_data_2010  <- merged_data_2010 %>%
 
 library(tidyr)
 
-Q12009 <- read_excel("Quarterly/02_04_1_trim_2009.xlsx", skip = 1)
+Q12009 <- read_excel("Quarterly/02_01_1_trim_2009.xlsx", skip = 1)
 colnames(Q12009)[1] <- "Entidad.federativa"
 colnames(Q12009)[2] <- "Saldo.total"
-
 Q1_2009 <- Q12009 %>%
   slice(1:(n() - 4)) %>%                # Remove the last 4 rows
   rename(`1Q2009` = `Saldo.total`) %>%  # Rename "Saldo.total" to "1Q2018"
   rename(EntidadFed = `Entidad.federativa`) %>% # Rename "Entidad.federativa" to "EntidadFed"
   select(EntidadFed, `1Q2009`) %>%      # Select only the desired columns
   drop_na()                             # Remove rows where any column has NA
-                          # Remove rows where any column has NA
 Q1_2009$id <- seq_len(nrow(Q1_2009))
+print(Q1_2009rows <- nrow(Q1_2009))
 
 
-Q22009 <- read_excel("Quarterly/02_04_2_trim_2009.xlsx", skip = 1)
+
+Q22009 <- read_excel("Quarterly/02_01_2_trim_2009.xlsx", skip = 1)
 colnames(Q22009)[1] <- "Entidad.federativa"
 colnames(Q22009)[2] <- "Saldo.total"
-
 Q2_2009 <- Q22009 %>%
   slice(1:(n() - 4)) %>%                # Remove the last 4 rows
   rename(`2Q2009` = `Saldo.total`) %>%  # Rename "Saldo.total" to "1Q2018"
   rename(EntidadFed = `Entidad.federativa`) %>% # Rename "Entidad.federativa" to "EntidadFed"
   select(EntidadFed, `2Q2009`) %>%      # Select only the desired columns
   drop_na()                             # Remove rows where any column has NA
-                          # Remove rows where any column has NA
 Q2_2009$id <- seq_len(nrow(Q2_2009))
+print(Q2_2009rows <- nrow(Q2_2009))
 
 
-Q32009 <- read_excel("Quarterly/02_04_3_trim_2009.xlsx", skip = 1)
+Q32009 <- read_excel("Quarterly/02_01_3_trim_2009.xlsx", skip = 1)
 colnames(Q32009)[1] <- "Entidad.federativa"
 colnames(Q32009)[2] <- "Saldo.total"
-
 Q3_2009 <- Q32009 %>%
   slice(1:(n() - 4)) %>%                # Remove the last 4 rows
   rename(`3Q2009` = `Saldo.total`) %>%  # Rename "Saldo.total" to "1Q2018"
   rename(EntidadFed = `Entidad.federativa`) %>% # Rename "Entidad.federativa" to "EntidadFed"
   select(EntidadFed, `3Q2009`) %>%      # Select only the desired columns
   drop_na()                             # Remove rows where any column has NA
-                          # Remove rows where any column has NA
 Q3_2009$id <- seq_len(nrow(Q3_2009))
+print(Q3_2009rows <- nrow(Q3_2009))
 
 
-Q42009 <- read_excel("Quarterly/02_04_4_trim_2009.xlsx", skip = 1)
+
+Q42009 <- read_excel("Quarterly/02_01_4_trim_2009.xlsx", skip = 1)
 colnames(Q42009)[1] <- "Entidad.federativa"
 colnames(Q42009)[2] <- "Saldo.total"
-
 Q4_2009 <- Q42009 %>%
   slice(1:(n() - 4)) %>%                # Remove the last 4 rows
   rename(`4Q2009` = `Saldo.total`) %>%  # Rename "Saldo.total" to "1Q2018"
   rename(EntidadFed = `Entidad.federativa`) %>% # Rename "Entidad.federativa" to "EntidadFed"
   select(EntidadFed, `4Q2009`) %>%      # Select only the desired columns
   drop_na()                             # Remove rows where any column has NA
-                          # Remove rows where any column has NA
 Q4_2009$id <- seq_len(nrow(Q4_2009))
+print(Q4_2009rows <- nrow(Q4_2009))
+
 
 merged_data_2009 <- Q1_2009 %>%
   left_join(Q2_2009, by = "id") %>%
@@ -1072,60 +3560,59 @@ merged_data_2009  <- merged_data_2009 %>%
 
 library(tidyr)
 
-Q12008 <- read_excel("Quarterly/02_04_1_trim_2008.xlsx", skip = 1)
+Q12008 <- read_excel("Quarterly/02_01_1_trim_2008.xlsx", skip = 1)
 colnames(Q12008)[1] <- "Entidad.federativa"
 colnames(Q12008)[2] <- "Saldo.total"
-
 Q1_2008 <- Q12008 %>%
   slice(1:(n() - 4)) %>%                # Remove the last 4 rows
   rename(`1Q2008` = `Saldo.total`) %>%  # Rename "Saldo.total" to "1Q2018"
   rename(EntidadFed = `Entidad.federativa`) %>% # Rename "Entidad.federativa" to "EntidadFed"
   select(EntidadFed, `1Q2008`) %>%      # Select only the desired columns
   drop_na()                             # Remove rows where any column has NA
-                          # Remove rows where any column has NA
 Q1_2008$id <- seq_len(nrow(Q1_2008))
+print(Q1_2008rows <- nrow(Q1_2008))
 
 
-Q22008 <- read_excel("Quarterly/02_04_2_trim_2008.xlsx", skip = 1)
+Q22008 <- read_excel("Quarterly/02_01_2_trim_2008.xlsx", skip = 1)
 colnames(Q22008)[1] <- "Entidad.federativa"
 colnames(Q22008)[2] <- "Saldo.total"
-
 Q2_2008 <- Q22008 %>%
   slice(1:(n() - 4)) %>%                # Remove the last 4 rows
   rename(`2Q2008` = `Saldo.total`) %>%  # Rename "Saldo.total" to "1Q2018"
   rename(EntidadFed = `Entidad.federativa`) %>% # Rename "Entidad.federativa" to "EntidadFed"
   select(EntidadFed, `2Q2008`) %>%      # Select only the desired columns
   drop_na()                             # Remove rows where any column has NA
-                          # Remove rows where any column has NA
 Q2_2008$id <- seq_len(nrow(Q2_2008))
+print(Q2_2008rows <- nrow(Q2_2008))
 
 
-Q32008 <- read_excel("Quarterly/02_04_3_trim_2008.xlsx", skip = 1)
+
+Q32008 <- read_excel("Quarterly/02_01_3_trim_2008.xlsx", skip = 1)
 colnames(Q32008)[1] <- "Entidad.federativa"
 colnames(Q32008)[2] <- "Saldo.total"
-
 Q3_2008 <- Q32008 %>%
   slice(1:(n() - 4)) %>%                # Remove the last 4 rows
   rename(`3Q2008` = `Saldo.total`) %>%  # Rename "Saldo.total" to "1Q2018"
   rename(EntidadFed = `Entidad.federativa`) %>% # Rename "Entidad.federativa" to "EntidadFed"
   select(EntidadFed, `3Q2008`) %>%      # Select only the desired columns
   drop_na()                             # Remove rows where any column has NA
-                          # Remove rows where any column has NA
 Q3_2008$id <- seq_len(nrow(Q3_2008))
+print(Q3_2008rows <- nrow(Q3_2008))
 
 
-Q42008 <- read_excel("Quarterly/02_04_4_trim_2008.xlsx", skip = 1)
+
+Q42008 <- read_excel("Quarterly/02_01_4_trim_2008.xlsx", skip = 1)
 colnames(Q42008)[1] <- "Entidad.federativa"
 colnames(Q42008)[2] <- "Saldo.total"
-
 Q4_2008 <- Q42008 %>%
   slice(1:(n() - 4)) %>%                # Remove the last 4 rows
   rename(`4Q2008` = `Saldo.total`) %>%  # Rename "Saldo.total" to "1Q2018"
   rename(EntidadFed = `Entidad.federativa`) %>% # Rename "Entidad.federativa" to "EntidadFed"
   select(EntidadFed, `4Q2008`) %>%      # Select only the desired columns
   drop_na()                             # Remove rows where any column has NA
-                          # Remove rows where any column has NA
 Q4_2008$id <- seq_len(nrow(Q4_2008))
+print(Q4_2008rows <- nrow(Q4_2008))
+
 
 merged_data_2008 <- Q1_2008 %>%
   left_join(Q2_2008, by = "id") %>%
@@ -1144,7 +3631,7 @@ merged_data_2008  <- merged_data_2008 %>%
 
 library(tidyr)
 
-Q12007 <- read_excel("Quarterly/02_04_1_trim_2007.xlsx", skip = 1)
+Q12007 <- read_excel("Quarterly/02_01_1_trim_2007.xlsx", skip = 1)
 colnames(Q12007)[1] <- "Entidad.federativa"
 colnames(Q12007)[2] <- "Saldo.total"
 
@@ -1154,50 +3641,50 @@ Q1_2007 <- Q12007 %>%
   rename(EntidadFed = `Entidad.federativa`) %>% # Rename "Entidad.federativa" to "EntidadFed"
   select(EntidadFed, `1Q2007`) %>%      # Select only the desired columns
   drop_na()                             # Remove rows where any column has NA
-                          # Remove rows where any column has NA
 Q1_2007$id <- seq_len(nrow(Q1_2007))
+print(Q1_2007rows <- nrow(Q1_2007))
 
 
-Q22007 <- read_excel("Quarterly/02_04_2_trim_2007.xlsx", skip = 1)
+
+Q22007 <- read_excel("Quarterly/02_01_2_trim_2007.xlsx", skip = 1)
 colnames(Q22007)[1] <- "Entidad.federativa"
 colnames(Q22007)[2] <- "Saldo.total"
-
 Q2_2007 <- Q22007 %>%
   slice(1:(n() - 4)) %>%                # Remove the last 4 rows
   rename(`2Q2007` = `Saldo.total`) %>%  # Rename "Saldo.total" to "1Q2018"
   rename(EntidadFed = `Entidad.federativa`) %>% # Rename "Entidad.federativa" to "EntidadFed"
   select(EntidadFed, `2Q2007`) %>%      # Select only the desired columns
   drop_na()                             # Remove rows where any column has NA
-                          # Remove rows where any column has NA
 Q2_2007$id <- seq_len(nrow(Q2_2007))
+print(Q2_2007rows <- nrow(Q2_2007))
 
 
-Q32007 <- read_excel("Quarterly/02_04_3_trim_2007.xlsx", skip = 1)
+
+Q32007 <- read_excel("Quarterly/02_01_3_trim_2007.xlsx", skip = 1)
 colnames(Q32007)[1] <- "Entidad.federativa"
 colnames(Q32007)[2] <- "Saldo.total"
-
 Q3_2007 <- Q32007 %>%
   slice(1:(n() - 4)) %>%                # Remove the last 4 rows
   rename(`3Q2007` = `Saldo.total`) %>%  # Rename "Saldo.total" to "1Q2018"
   rename(EntidadFed = `Entidad.federativa`) %>% # Rename "Entidad.federativa" to "EntidadFed"
   select(EntidadFed, `3Q2007`) %>%      # Select only the desired columns
   drop_na()                             # Remove rows where any column has NA
-                          # Remove rows where any column has NA
 Q3_2007$id <- seq_len(nrow(Q3_2007))
+print(Q3_2007rows <- nrow(Q3_2007))
 
 
-Q42007 <- read_excel("Quarterly/02_04_4_trim_2007.xlsx", skip = 1)
+Q42007 <- read_excel("Quarterly/02_01_4_trim_2007.xlsx", skip = 1)
 colnames(Q42007)[1] <- "Entidad.federativa"
 colnames(Q42007)[2] <- "Saldo.total"
-
 Q4_2007 <- Q42007 %>%
   slice(1:(n() - 4)) %>%                # Remove the last 4 rows
   rename(`4Q2007` = `Saldo.total`) %>%  # Rename "Saldo.total" to "1Q2018"
   rename(EntidadFed = `Entidad.federativa`) %>% # Rename "Entidad.federativa" to "EntidadFed"
   select(EntidadFed, `4Q2007`) %>%      # Select only the desired columns
   drop_na()                             # Remove rows where any column has NA
-                          # Remove rows where any column has NA
 Q4_2007$id <- seq_len(nrow(Q4_2007))
+print(Q4_2007rows <- nrow(Q4_2007))
+
 
 merged_data_2007 <- Q1_2007 %>%
   left_join(Q2_2007, by = "id") %>%
@@ -1216,60 +3703,60 @@ merged_data_2007  <- merged_data_2007 %>%
 
 library(tidyr)
 
-Q12006 <- read_excel("Quarterly/02_04_1_trim_2006.xlsx", skip = 1)
+Q12006 <- read_excel("Quarterly/02_01_1_trim_2006.xlsx", skip = 1)
 colnames(Q12006)[1] <- "Entidad.federativa"
 colnames(Q12006)[2] <- "Saldo.total"
-
 Q1_2006 <- Q12006 %>%
   slice(1:(n() - 4)) %>%                # Remove the last 4 rows
   rename(`1Q2006` = `Saldo.total`) %>%  # Rename "Saldo.total" to "1Q2018"
   rename(EntidadFed = `Entidad.federativa`) %>% # Rename "Entidad.federativa" to "EntidadFed"
   select(EntidadFed, `1Q2006`) %>%      # Select only the desired columns
   drop_na()                             # Remove rows where any column has NA
-                          # Remove rows where any column has NA
 Q1_2006$id <- seq_len(nrow(Q1_2006))
+print(Q1_2006rows <- nrow(Q1_2006))
 
 
-Q22006 <- read_excel("Quarterly/02_04_2_trim_2006.xlsx", skip = 1)
+
+Q22006 <- read_excel("Quarterly/02_01_2_trim_2006.xlsx", skip = 1)
 colnames(Q22006)[1] <- "Entidad.federativa"
 colnames(Q22006)[2] <- "Saldo.total"
-
 Q2_2006 <- Q22006 %>%
   slice(1:(n() - 4)) %>%                # Remove the last 4 rows
   rename(`2Q2006` = `Saldo.total`) %>%  # Rename "Saldo.total" to "1Q2018"
   rename(EntidadFed = `Entidad.federativa`) %>% # Rename "Entidad.federativa" to "EntidadFed"
   select(EntidadFed, `2Q2006`) %>%      # Select only the desired columns
   drop_na()                             # Remove rows where any column has NA
-                          # Remove rows where any column has NA
 Q2_2006$id <- seq_len(nrow(Q2_2006))
+print(Q2_2006rows <- nrow(Q2_2006))
 
 
-Q32006 <- read_excel("Quarterly/02_04_3_trim_2006.xlsx", skip = 1)
+
+Q32006 <- read_excel("Quarterly/02_01_3_trim_2006.xlsx", skip = 1)
 colnames(Q32006)[1] <- "Entidad.federativa"
 colnames(Q32006)[2] <- "Saldo.total"
-
 Q3_2006 <- Q32006 %>%
   slice(1:(n() - 4)) %>%                # Remove the last 4 rows
   rename(`3Q2006` = `Saldo.total`) %>%  # Rename "Saldo.total" to "1Q2018"
   rename(EntidadFed = `Entidad.federativa`) %>% # Rename "Entidad.federativa" to "EntidadFed"
   select(EntidadFed, `3Q2006`) %>%      # Select only the desired columns
   drop_na()                             # Remove rows where any column has NA
-                          # Remove rows where any column has NA
 Q3_2006$id <- seq_len(nrow(Q3_2006))
+print(Q3_2006rows <- nrow(Q3_2006))
 
 
-Q42006 <- read_excel("Quarterly/02_04_4_trim_2006.xlsx", skip = 1)
+
+Q42006 <- read_excel("Quarterly/02_01_4_trim_2006.xlsx", skip = 1)
 colnames(Q42006)[1] <- "Entidad.federativa"
 colnames(Q42006)[2] <- "Saldo.total"
-
 Q4_2006 <- Q42006 %>%
   slice(1:(n() - 4)) %>%                # Remove the last 4 rows
   rename(`4Q2006` = `Saldo.total`) %>%  # Rename "Saldo.total" to "1Q2018"
   rename(EntidadFed = `Entidad.federativa`) %>% # Rename "Entidad.federativa" to "EntidadFed"
   select(EntidadFed, `4Q2006`) %>%      # Select only the desired columns
   drop_na()                             # Remove rows where any column has NA
-                          # Remove rows where any column has NA
 Q4_2006$id <- seq_len(nrow(Q4_2006))
+print(Q4_2006rows <- nrow(Q4_2006))
+
 
 merged_data_2006 <- Q1_2006 %>%
   left_join(Q2_2006, by = "id") %>%
@@ -1288,60 +3775,33 @@ merged_data_2006  <- merged_data_2006 %>%
 
 library(tidyr)
 
-Q12005 <- read_excel("Quarterly/02_04_1_trim_2005.xlsx", skip = 1)
-colnames(Q12005)[1] <- "Entidad.federativa"
-colnames(Q12005)[2] <- "Saldo.total"
 
-Q1_2005 <- Q12005 %>%
-  slice(1:(n() - 4)) %>%                # Remove the last 4 rows
-  rename(`1Q2005` = `Saldo.total`) %>%  # Rename "Saldo.total" to "1Q2018"
-  rename(EntidadFed = `Entidad.federativa`) %>% # Rename "Entidad.federativa" to "EntidadFed"
-  select(EntidadFed, `1Q2005`) %>%      # Select only the desired columns
-  drop_na()                             # Remove rows where any column has NA
-                          # Remove rows where any column has NA
-Q1_2005$id <- seq_len(nrow(Q1_2005))
-
-
-Q22005 <- read_excel("Quarterly/02_04_2_trim_2005.xlsx", skip = 1)
-colnames(Q22005)[1] <- "Entidad.federativa"
-colnames(Q22005)[2] <- "Saldo.total"
-
-Q2_2005 <- Q22005 %>%
-  slice(1:(n() - 4)) %>%                # Remove the last 4 rows
-  rename(`2Q2005` = `Saldo.total`) %>%  # Rename "Saldo.total" to "1Q2018"
-  rename(EntidadFed = `Entidad.federativa`) %>% # Rename "Entidad.federativa" to "EntidadFed"
-  select(EntidadFed, `2Q2005`) %>%      # Select only the desired columns
-  drop_na()                             # Remove rows where any column has NA
-                          # Remove rows where any column has NA
-Q2_2005$id <- seq_len(nrow(Q2_2005))
-
-
-Q32005 <- read_excel("Quarterly/02_04_3_trim_2005.xlsx", skip = 1)
+Q32005 <- read_excel("Quarterly/02_01_3_trim_2005.xlsx", skip = 1)
 colnames(Q32005)[1] <- "Entidad.federativa"
 colnames(Q32005)[2] <- "Saldo.total"
-
 Q3_2005 <- Q32005 %>%
   slice(1:(n() - 4)) %>%                # Remove the last 4 rows
   rename(`3Q2005` = `Saldo.total`) %>%  # Rename "Saldo.total" to "1Q2018"
   rename(EntidadFed = `Entidad.federativa`) %>% # Rename "Entidad.federativa" to "EntidadFed"
   select(EntidadFed, `3Q2005`) %>%      # Select only the desired columns
   drop_na()                             # Remove rows where any column has NA
-                          # Remove rows where any column has NA
 Q3_2005$id <- seq_len(nrow(Q3_2005))
+print(Q3_2005rows <- nrow(Q3_2005))
 
 
-Q42005 <- read_excel("Quarterly/02_04_4_trim_2005.xlsx", skip = 1)
+
+Q42005 <- read_excel("Quarterly/02_01_4_trim_2005.xlsx", skip = 1)
 colnames(Q42005)[1] <- "Entidad.federativa"
 colnames(Q42005)[2] <- "Saldo.total"
-
 Q4_2005 <- Q42005 %>%
   slice(1:(n() - 4)) %>%                # Remove the last 4 rows
   rename(`4Q2005` = `Saldo.total`) %>%  # Rename "Saldo.total" to "1Q2018"
   rename(EntidadFed = `Entidad.federativa`) %>% # Rename "Entidad.federativa" to "EntidadFed"
   select(EntidadFed, `4Q2005`) %>%      # Select only the desired columns
   drop_na()                             # Remove rows where any column has NA
-                          # Remove rows where any column has NA
 Q4_2005$id <- seq_len(nrow(Q4_2005))
+print(Q4_2005rows <- nrow(Q4_2005))
+
 
 merged_data_2005 <- Q1_2005 %>%
   left_join(Q2_2005, by = "id") %>%
